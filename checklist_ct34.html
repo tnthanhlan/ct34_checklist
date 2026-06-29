@@ -198,7 +198,7 @@ function init() {
 // =============================================
 function checkAuth() {
   // Nếu chưa cấu hình API, dùng offline mode
-  if (API_URL === 'YOUR_APPS_SCRIPT_URL') {
+  if (API_URL === 'https://script.google.com/macros/s/AKfycbwkxj2anGjhXwX2yl3Awu134LAh2IRb_CAYQBJAgJ3nr1z48_b2o9sT4yoC2F_ONtF6Pg/exec') {
     USER = { email: 'offline@local', role: 'admin' };
     showUI();
     loadFromLocal();
@@ -264,7 +264,7 @@ function loadFromLocal() {
 // GỌI API
 // =============================================
 async function callAPI(action, params={}, body=null) {
-  if (API_URL === 'YOUR_APPS_SCRIPT_URL') {
+  if (API_URL === 'https://script.google.com/macros/s/AKfycbwkxj2anGjhXwX2yl3Awu134LAh2IRb_CAYQBJAgJ3nr1z48_b2o9sT4yoC2F_ONtF6Pg/exec') {
     // Offline mode: trả về empty
     return {};
   }
@@ -283,7 +283,7 @@ async function callAPI(action, params={}, body=null) {
 }
 
 async function saveToServer(sheetName, rowIndex, fields) {
-  if (API_URL === 'YOUR_APPS_SCRIPT_URL') return;
+  if (API_URL === 'https://script.google.com/macros/s/AKfycbwkxj2anGjhXwX2yl3Awu134LAh2IRb_CAYQBJAgJ3nr1z48_b2o9sT4yoC2F_ONtF6Pg/exec') return;
   try {
     const result = await callAPI('saveRow', {}, { sheetName, rowIndex, fields });
     if (result.success) {
@@ -829,7 +829,7 @@ function savSheet(){
  if(!CUR)return;
  localStorage.setItem('ct34v4',JSON.stringify(DIRTY));
  // Đẩy toàn bộ dirty lên server
- if(API_URL!=='YOUR_APPS_SCRIPT_URL'&&DIRTY[CUR]){
+ if(API_URL!=='https://script.google.com/macros/s/AKfycbwkxj2anGjhXwX2yl3Awu134LAh2IRb_CAYQBJAgJ3nr1z48_b2o9sT4yoC2F_ONtF6Pg/exec'&&DIRTY[CUR]){
   const promises=Object.entries(DIRTY[CUR]).map(([rowIdx,fields])=>
    saveToServer(CUR,getSheetRowIndex(parseInt(rowIdx)),fields)
   );
