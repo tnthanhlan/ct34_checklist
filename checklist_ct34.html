@@ -89,6 +89,12 @@ tbody td{padding:3px 4px;border-right:1px solid var(--bd);vertical-align:middle;
 .ci.CD{background:var(--rw)!important;border-color:var(--rb)!important}
 .ns{padding:2px 3px;border:1px solid var(--bd);border-radius:4px;font-size:10px;background:white}
 .ns.NK{background:var(--rw);border-color:var(--rb);color:var(--rt);font-weight:700}
+/* Nút tick trạng thái */
+.tk-wrap{display:flex;gap:3px;justify-content:center;align-items:center}
+.tk{width:26px;height:22px;border:1px solid var(--bd);border-radius:4px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;background:white;transition:all .1s;user-select:none;flex-shrink:0}
+.tk:hover{border-color:#888}
+.tk.ok-on{background:#dcfce7;border-color:#22c55e;color:#166534}
+.tk.nok-on{background:var(--rw);border-color:var(--rb);color:var(--rt)}
 .rW td:not(.nm):not(.sk):not(.sk2){background:var(--yw)!important}
 .rD td:not(.nm):not(.sk):not(.sk2){background:var(--rw)!important}
 </style>
@@ -413,7 +419,10 @@ function tpI(i,f){const v=gv(i,f);const c=tC(v);return `<input class="ci ${c}" d
 function sX(i,f,v){
  const vn=(v||'').toLowerCase();
  const isOk=vn==='ok'||vn==='x';const isNok=vn==='nok';
- return `<select class="ns ${isNok?'NK':''}" data-i="${i}" data-f="${f}"><option value="">–</option><option ${isOk?'selected':''}>OK</option><option ${isNok?'selected':''}>NOK</option></select>`;
+ return `<span class="tk-wrap">
+  <span class="tk ${isOk?'ok-on':''}" data-i="${i}" data-f="${f}" data-role="ok" title="OK">✔</span>
+  <span class="tk ${isNok?'nok-on':''}" data-i="${i}" data-f="${f}" data-role="nok" title="NOK">✘</span>
+ </span>`;
 }
 
 function onChg(e){
@@ -427,8 +436,10 @@ function onChg(e){
  // Lưu local
  localStorage.setItem('ct34v4', JSON.stringify(DIRTY));
 
- // Màu input
+ // Màu input (SELECT cho sN - hộp nối)
  if(e.target.tagName==='SELECT')e.target.className='ns'+(v==='NOK'?' NK':'');
+ // Bỏ qua nếu là SPAN (nút tick - đã xử lý trong onTickClick)
+ if(e.target.tagName==='SPAN')return;
  const nm=CD[i]?CD[i].norminal:null;
  const ampF=['I_U_u','I_U_l','I_V_u','I_V_l','I_W_u','I_W_l'];
  const tmpF=['t_dc','t_s2','t_s3'];
@@ -756,9 +767,38 @@ function renderHTDem(){
 
 function bindEv(){
  document.getElementById('tb').querySelectorAll('[data-f]').forEach(el=>{
-  el.addEventListener('change',onChg);
-  if(el.tagName!=='SELECT')el.addEventListener('input',onChg);
+  if(el.tagName==='SPAN'&&el.dataset.role){
+   el.addEventListener('click',onTickClick);
+  } else {
+   el.addEventListener('change',onChg);
+   if(el.tagName!=='SELECT')el.addEventListener('input',onChg);
+  }
  });
+}
+
+function onTickClick(e){
+ const el=e.currentTarget;
+ const i=parseInt(el.dataset.i),f=el.dataset.f,role=el.dataset.role;
+ const wrap=el.parentElement;
+ const okBtn=wrap.querySelector('[data-role="ok"]');
+ const nokBtn=wrap.querySelector('[data-role="nok"]');
+
+ let newVal='';
+ if(role==='ok'){
+  // Toggle OK: nếu đang OK thì bỏ, nếu không thì set OK
+  newVal=okBtn.classList.contains('ok-on')?'':'OK';
+ } else {
+  // Toggle NOK: nếu đang NOK thì bỏ, nếu không thì set NOK
+  newVal=nokBtn.classList.contains('nok-on')?'':'NOK';
+ }
+
+ // Cập nhật visual
+ okBtn.classList.toggle('ok-on', newVal==='OK');
+ nokBtn.classList.toggle('nok-on', newVal==='NOK');
+
+ // Gọi onChg giả lập
+ const fakeE={target:{dataset:{i:String(i),f},value:newVal,tagName:'SPAN'},currentTarget:el};
+ onChg(fakeE);
 }
 
 function updAlerts(){
