@@ -436,7 +436,7 @@ function sX(i,f,v){
 // colorClass: 'run-on' (xanh) hoặc 'stp-on' (đỏ)
 function tkSingle(i,f,v,colorClass,pairField){
  const on=(v||'')==='x'||(v||'').toLowerCase()==='ok'||(v||'')==='1';
- return `<span class="tk1 ${on?colorClass:''}" data-i="${i}" data-f="${f}" data-pair="${pairField}" title="Click để chọn">${on?'✔':''}</span>`;
+ return `<span class="tk1 ${on?colorClass:''}" data-i="${i}" data-f="${f}" data-pair="${pairField}" data-color="${colorClass}" title="Click để chọn">${on?'✔':''}</span>`;
 }
 
 function onChg(e){
@@ -612,7 +612,7 @@ function renderTBA(){
    <td>${dI(i,'ngay',gv(i,'ngay'))}</td><td>${tI(i,'gio',gv(i,'gio'))}</td><td>${xI(i,'nguoi',gv(i,'nguoi'),74)}</td>
    <td style="font-size:10px;color:var(--mu)">${dev.yeu_cau||''}</td>
    <td style="text-align:center;font-size:10px">${dev.dvt||''}</td>
-   <td>${sX(i,'ok',gv(i,'ok'))}</td><td>${sX(i,'nok',gv(i,'nok'))}</td>
+   <td>${tkSingle(i,'ok',gv(i,'ok'),'run-on','nok')}</td><td>${tkSingle(i,'nok',gv(i,'nok'),'stp-on','ok')}</td>
    <td>${xI(i,'t341',gv(i,'t341'),48)}</td><td>${xI(i,'t342',gv(i,'t342'),48)}</td><td>${xI(i,'t201',gv(i,'t201'),48)}</td>
    <td>${xI(i,'txln_t1',gv(i,'txln_t1'),42)}</td><td>${xI(i,'txln_t2',gv(i,'txln_t2'),42)}</td>
    <td>${xI(i,'canh_bao',gv(i,'canh_bao'),78)}</td><td>${xI(i,'danh_gia',gv(i,'danh_gia'),52)}</td>
@@ -645,7 +645,7 @@ function renderCDC(){
    <td style="font-size:10px">${dev.phan_tu}</td><td>${dI(i,'ngay',gv(i,'ngay'))}</td>
    <td style="font-size:10px;color:var(--mu)">${dev.yeu_cau||''}</td>
    <td style="text-align:center;font-size:10px">${dev.dvt||''}</td>
-   <td>${sX(i,'ok',gv(i,'ok'))}</td><td>${sX(i,'nok',gv(i,'nok'))}</td>
+   <td>${tkSingle(i,'ok',gv(i,'ok'),'run-on','nok')}</td><td>${tkSingle(i,'nok',gv(i,'nok'),'stp-on','ok')}</td>
    <td>${xI(i,'t341_ca',gv(i,'t341_ca'),44)}</td><td>${xI(i,'t341_ha',gv(i,'t341_ha'),44)}</td>
    <td>${xI(i,'t342_ca',gv(i,'t342_ca'),44)}</td><td>${xI(i,'t342_ha',gv(i,'t342_ha'),44)}</td>
    <td>${xI(i,'t201_ba',gv(i,'t201_ba'),44)}</td>
@@ -675,8 +675,8 @@ function renderNhaTram(){
   let tds='';
   trams.forEach(([t])=>{
    tds+=`<td>${tkSingle(i,t+'_run',gv(i,t+'_run'),'run-on',t+'_stop')}</td><td>${tkSingle(i,t+'_stop',gv(i,t+'_stop'),'stp-on',t+'_run')}</td>
-   <td>${sX(i,t+'_ok',gv(i,t+'_ok'))}</td><td>${sX(i,t+'_nok',gv(i,t+'_nok'))}</td>
-   <td>${sX(i,t+'_on_ok',gv(i,t+'_on_ok'))}</td><td>${sX(i,t+'_on_nok',gv(i,t+'_on_nok'))}</td>
+   <td>${tkSingle(i,t+'_ok',gv(i,t+'_ok'),'run-on',t+'_nok')}</td><td>${tkSingle(i,t+'_nok',gv(i,t+'_nok'),'stp-on',t+'_ok')}</td>
+   <td>${tkSingle(i,t+'_on_ok',gv(i,t+'_on_ok'),'run-on',t+'_on_nok')}</td><td>${tkSingle(i,t+'_on_nok',gv(i,t+'_on_nok'),'stp-on',t+'_on_ok')}</td>
    <td>${nI(i,t+'_am',gv(i,t+'_am'),44)}</td><td>${nI(i,t+'_nhiet',gv(i,t+'_nhiet'),44)}</td><td>${xI(i,t+'_gtd',gv(i,t+'_gtd'),60)}</td>`;
   });
   tr.innerHTML=`<td class="sk" style="text-align:center;font-size:10px">${dev.stt||''}</td>
@@ -703,7 +703,7 @@ function renderCanOto(){
   let tds='';
   cans.forEach(([k])=>{
    tds+=`<td>${tkSingle(i,k+'_run',gv(i,k+'_run'),'run-on',k+'_stop')}</td><td>${tkSingle(i,k+'_stop',gv(i,k+'_stop'),'stp-on',k+'_run')}</td>
-   <td>${sX(i,k+'_ok',gv(i,k+'_ok'))}</td><td>${sX(i,k+'_nok',gv(i,k+'_nok'))}</td>
+   <td>${tkSingle(i,k+'_ok',gv(i,k+'_ok'),'run-on',k+'_nok')}</td><td>${tkSingle(i,k+'_nok',gv(i,k+'_nok'),'stp-on',k+'_ok')}</td>
    <td>${xI(i,k+'_ma',gv(i,k+'_ma'),44)}</td><td>${xI(i,k+'_tri',gv(i,k+'_tri'),44)}</td><td>${xI(i,k+'_gtc',gv(i,k+'_gtc'),60)}</td>`;
   });
   tr.innerHTML=`<td class="sk" style="text-align:center;font-size:10px">${dev.stt||''}</td>
@@ -740,7 +740,7 @@ function renderCanXRT(){
    <td style="font-size:10px;color:var(--mu)">${dev.yeu_cau||''}</td>
    <td style="text-align:center;font-size:10px">${dev.dvt||''}</td>
    <td>${tkSingle(i,'run',gv(i,'run'),'run-on','stop')}</td><td>${tkSingle(i,'stop',gv(i,'stop'),'stp-on','run')}</td>
-   <td>${sX(i,'ok',gv(i,'ok'))}</td><td>${sX(i,'nok',gv(i,'nok'))}</td>
+   <td>${tkSingle(i,'ok',gv(i,'ok'),'run-on','nok')}</td><td>${tkSingle(i,'nok',gv(i,'nok'),'stp-on','ok')}</td>
    <td>${xI(i,'ma_bao',gv(i,'ma_bao'),60)}</td><td>${xI(i,'tri_so',gv(i,'tri_so'),68)}</td>
    <td>${xI(i,'gia_tri_tc',gv(i,'gia_tri_tc'),86)}</td>
    <td>${xI(i,'dien_giai',gv(i,'dien_giai'),86)}</td>
@@ -767,8 +767,8 @@ function renderHTDem(){
   let tds='';
   plcs.forEach(([p])=>{
    tds+=`<td>${tkSingle(i,p+'_run',gv(i,p+'_run'),'run-on',p+'_stop')}</td><td>${tkSingle(i,p+'_stop',gv(i,p+'_stop'),'stp-on',p+'_run')}</td>
-   <td>${sX(i,p+'_ok',gv(i,p+'_ok'))}</td><td>${sX(i,p+'_nok',gv(i,p+'_nok'))}</td>
-   <td>${sX(i,p+'_ok2',gv(i,p+'_ok2'))}</td><td>${sX(i,p+'_nok2',gv(i,p+'_nok2'))}</td>`;
+   <td>${tkSingle(i,p+'_ok',gv(i,p+'_ok'),'run-on',p+'_nok')}</td><td>${tkSingle(i,p+'_nok',gv(i,p+'_nok'),'stp-on',p+'_ok')}</td>
+   <td>${tkSingle(i,p+'_ok2',gv(i,p+'_ok2'),'run-on',p+'_nok2')}</td><td>${tkSingle(i,p+'_nok2',gv(i,p+'_nok2'),'stp-on',p+'_ok2')}</td>`;
   });
   tr.innerHTML=`<td class="sk" style="text-align:center;font-size:10px">${dev.stt||''}</td>
    <td style="position:sticky;left:30px;z-index:17;background:#f8fafc;font-weight:600;font-size:10px">${dev.doi_tuong}</td>
@@ -794,17 +794,22 @@ function bindEv(){
 
 function onTk1Click(e){
  const el=e.currentTarget;
- const i=parseInt(el.dataset.i),f=el.dataset.f,pairField=el.dataset.pair;
+ const i=parseInt(el.dataset.i),f=el.dataset.f,pairField=el.dataset.pair,myColor=el.dataset.color;
  const tr=el.closest('tr');
  const pairEl=tr.querySelector(`[data-f="${pairField}"].tk1`);
 
  const wasOn=el.classList.contains('run-on')||el.classList.contains('stp-on');
- const newVal=wasOn?'':'x';
+ // Xác định giá trị lưu: nếu field chứa 'nok' thì lưu 'NOK', nếu chứa 'ok' (không phải nok) thì lưu 'OK', còn lại (run/stp) lưu 'x'
+ const fLower=f.toLowerCase();
+ let onValue='x';
+ if(fLower.includes('nok'))onValue='NOK';
+ else if(fLower.includes('ok'))onValue='OK';
+ const newVal=wasOn?'':onValue;
 
  // Set giá trị ô được click
  if(newVal){
   el.textContent='✔';
-  el.classList.add(el.dataset.f.endsWith('run')||el.dataset.f==='run'?'run-on':'stp-on');
+  el.classList.add(myColor);
  } else {
   el.textContent='';
   el.classList.remove('run-on','stp-on');
