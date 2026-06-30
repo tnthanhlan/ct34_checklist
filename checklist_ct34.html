@@ -275,23 +275,67 @@ function loadFromLocal() {
 // =============================================
 // GỌI API
 // =============================================
+// =============================================
+// JSONP - Vượt qua CORS cho các lệnh GET (đọc dữ liệu, xác thực)
+// Apps Script chặn CORS với fetch() nhưng <script> tag thì không bị chặn
+// =============================================
+let jsonpCounter = 0;
+function jsonpRequest(action, params = {}) {
+  if (OFFLINE_MODE) return Promise.resolve({});
+  return new Promise((resolve, reject) => {
+    const cbName = 'jsonp_cb_' + (jsonpCounter++) + '_' + Date.now();
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error('Timeout: không kết nối được server'));
+    }, 15000);
+
+    function cleanup() {
+      clearTimeout(timeout);
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+
+    window[cbName] = (data) => {
+      cleanup();
+      resolve(data);
+    };
+
+    const qs = new URLSearchParams({ action, callback: cbName, ...params });
+    const script = document.createElement('script');
+    script.src = API_URL + '?' + qs.toString();
+    script.onerror = () => {
+      cleanup();
+      reject(new Error('Lỗi tải script JSONP'));
+    };
+    document.body.appendChild(script);
+  });
+}
+
+// =============================================
+// GỌI API - GET dùng JSONP (đọc kết quả được), POST dùng no-cors (ghi, không đọc được response)
+// =============================================
 async function callAPI(action, params={}, body=null) {
   if (OFFLINE_MODE) {
     // Offline mode: trả về empty
     return {};
   }
 
-  const url = API_URL + '?action=' + action + '&' + new URLSearchParams(params);
-  const opts = { method: 'GET' };
-
-  if (body) {
-    opts.method = 'POST';
-    opts.headers = { 'Content-Type': 'application/json' };
-    opts.body = JSON.stringify({ action, ...body });
+  if (!body) {
+    // GET: dùng JSONP để đọc được response (vượt CORS)
+    return jsonpRequest(action, params);
   }
 
-  const res = await fetch(url, opts);
-  return res.json();
+  // POST: dùng no-cors - gửi được nhưng KHÔNG đọc được response
+  // (Apps Script vẫn nhận và xử lý ghi dữ liệu bình thường)
+  const url = API_URL;
+  await fetch(url, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // tránh preflight OPTIONS
+    body: JSON.stringify({ action, ...body })
+  });
+  // Không đọc được kết quả thật, giả định thành công nếu không exception
+  return { success: true };
 }
 
 async function saveToServer(sheetName, rowIndex, fields) {
