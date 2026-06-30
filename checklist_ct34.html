@@ -95,6 +95,11 @@ tbody td{padding:3px 4px;border-right:1px solid var(--bd);vertical-align:middle;
 .tk:hover{border-color:#888}
 .tk.ok-on{background:#dcfce7;border-color:#22c55e;color:#166534}
 .tk.nok-on{background:var(--rw);border-color:var(--rb);color:var(--rt)}
+/* Nút tick đơn cho RUN/STP - click vào ô để chọn, click ô kia tự tắt */
+.tk1{display:flex;align-items:center;justify-content:center;width:24px;height:22px;margin:0 auto;border:1px solid var(--bd);border-radius:4px;cursor:pointer;font-size:13px;background:white;transition:all .1s;user-select:none}
+.tk1:hover{border-color:#888}
+.tk1.run-on{background:#dcfce7;border-color:#22c55e;color:#166534;font-weight:700}
+.tk1.stp-on{background:var(--rw);border-color:var(--rb);color:var(--rt);font-weight:700}
 .rW td:not(.nm):not(.sk):not(.sk2){background:var(--yw)!important}
 .rD td:not(.nm):not(.sk):not(.sk2){background:var(--rw)!important}
 </style>
@@ -425,6 +430,15 @@ function sX(i,f,v){
  </span>`;
 }
 
+// Nút tick đơn cho cặp RUN/STP - 2 cột riêng, loại trừ nhau
+// fRun/fStop: tên field tương ứng; v: giá trị hiện tại của field này
+// pairField: tên field đối lập (để khi tick thì tắt field đối lập)
+// colorClass: 'run-on' (xanh) hoặc 'stp-on' (đỏ)
+function tkSingle(i,f,v,colorClass,pairField){
+ const on=(v||'')==='x'||(v||'').toLowerCase()==='ok'||(v||'')==='1';
+ return `<span class="tk1 ${on?colorClass:''}" data-i="${i}" data-f="${f}" data-pair="${pairField}" title="Click để chọn">${on?'✔':''}</span>`;
+}
+
 function onChg(e){
  const i=parseInt(e.target.dataset.i),f=e.target.dataset.f,v=e.target.value;
 
@@ -544,7 +558,7 @@ function renderMotor(isBom){
    <td style="position:sticky;left:${lft}px;z-index:17;background:#f8fafc;font-weight:600;font-size:10px">${isBom?(dev.doi_tuong||''):dev.doi_tuong}</td>
    <td style="font-size:10px;color:var(--mu)">${dev.phan_tu}</td>
    <td>${dI(i,'ngay',gv(i,'ngay'))}</td><td>${tI(i,'gio',gv(i,'gio'))}</td><td>${xI(i,'nguoi',gv(i,'nguoi'),74)}</td>
-   <td>${sX(i,'run',gv(i,'run'))}</td><td>${sX(i,'stp',gv(i,'stp'))}</td>
+   <td>${tkSingle(i,'run',gv(i,'run'),'run-on','stp')}</td><td>${tkSingle(i,'stp',gv(i,'stp'),'stp-on','run')}</td>
    <td>${aI(i,'I_U_u',nm)}</td><td>${aI(i,'I_U_l',nm)}</td>
    <td>${aI(i,'I_V_u',nm)}</td><td>${aI(i,'I_V_l',nm)}</td>
    <td>${aI(i,'I_W_u',nm)}</td><td>${isBom?nI(i,'I_W_u','',48):aI(i,'I_W_l',nm)}</td>
@@ -660,7 +674,7 @@ function renderNhaTram(){
   const tr=document.createElement('tr');tr.id='r'+i;if(hasNok)tr.className='rW';
   let tds='';
   trams.forEach(([t])=>{
-   tds+=`<td>${sX(i,t+'_run',gv(i,t+'_run'))}</td><td>${sX(i,t+'_stop',gv(i,t+'_stop'))}</td>
+   tds+=`<td>${tkSingle(i,t+'_run',gv(i,t+'_run'),'run-on',t+'_stop')}</td><td>${tkSingle(i,t+'_stop',gv(i,t+'_stop'),'stp-on',t+'_run')}</td>
    <td>${sX(i,t+'_ok',gv(i,t+'_ok'))}</td><td>${sX(i,t+'_nok',gv(i,t+'_nok'))}</td>
    <td>${sX(i,t+'_on_ok',gv(i,t+'_on_ok'))}</td><td>${sX(i,t+'_on_nok',gv(i,t+'_on_nok'))}</td>
    <td>${nI(i,t+'_am',gv(i,t+'_am'),44)}</td><td>${nI(i,t+'_nhiet',gv(i,t+'_nhiet'),44)}</td><td>${xI(i,t+'_gtd',gv(i,t+'_gtd'),60)}</td>`;
@@ -688,7 +702,7 @@ function renderCanOto(){
   ok++;const tr=document.createElement('tr');tr.id='r'+i;
   let tds='';
   cans.forEach(([k])=>{
-   tds+=`<td>${sX(i,k+'_run',gv(i,k+'_run'))}</td><td>${sX(i,k+'_stop',gv(i,k+'_stop'))}</td>
+   tds+=`<td>${tkSingle(i,k+'_run',gv(i,k+'_run'),'run-on',k+'_stop')}</td><td>${tkSingle(i,k+'_stop',gv(i,k+'_stop'),'stp-on',k+'_run')}</td>
    <td>${sX(i,k+'_ok',gv(i,k+'_ok'))}</td><td>${sX(i,k+'_nok',gv(i,k+'_nok'))}</td>
    <td>${xI(i,k+'_ma',gv(i,k+'_ma'),44)}</td><td>${xI(i,k+'_tri',gv(i,k+'_tri'),44)}</td><td>${xI(i,k+'_gtc',gv(i,k+'_gtc'),60)}</td>`;
   });
@@ -725,7 +739,7 @@ function renderCanXRT(){
    <td style="font-size:10px">${dev.phan_tu}</td><td>${dI(i,'ngay',gv(i,'ngay'))}</td>
    <td style="font-size:10px;color:var(--mu)">${dev.yeu_cau||''}</td>
    <td style="text-align:center;font-size:10px">${dev.dvt||''}</td>
-   <td>${sX(i,'run',gv(i,'run'))}</td><td>${sX(i,'stop',gv(i,'stop'))}</td>
+   <td>${tkSingle(i,'run',gv(i,'run'),'run-on','stop')}</td><td>${tkSingle(i,'stop',gv(i,'stop'),'stp-on','run')}</td>
    <td>${sX(i,'ok',gv(i,'ok'))}</td><td>${sX(i,'nok',gv(i,'nok'))}</td>
    <td>${xI(i,'ma_bao',gv(i,'ma_bao'),60)}</td><td>${xI(i,'tri_so',gv(i,'tri_so'),68)}</td>
    <td>${xI(i,'gia_tri_tc',gv(i,'gia_tri_tc'),86)}</td>
@@ -752,7 +766,7 @@ function renderHTDem(){
   const tr=document.createElement('tr');tr.id='r'+i;if(hasNok)tr.className='rW';
   let tds='';
   plcs.forEach(([p])=>{
-   tds+=`<td>${sX(i,p+'_run',gv(i,p+'_run'))}</td><td>${sX(i,p+'_stop',gv(i,p+'_stop'))}</td>
+   tds+=`<td>${tkSingle(i,p+'_run',gv(i,p+'_run'),'run-on',p+'_stop')}</td><td>${tkSingle(i,p+'_stop',gv(i,p+'_stop'),'stp-on',p+'_run')}</td>
    <td>${sX(i,p+'_ok',gv(i,p+'_ok'))}</td><td>${sX(i,p+'_nok',gv(i,p+'_nok'))}</td>
    <td>${sX(i,p+'_ok2',gv(i,p+'_ok2'))}</td><td>${sX(i,p+'_nok2',gv(i,p+'_nok2'))}</td>`;
   });
@@ -769,11 +783,46 @@ function bindEv(){
  document.getElementById('tb').querySelectorAll('[data-f]').forEach(el=>{
   if(el.tagName==='SPAN'&&el.dataset.role){
    el.addEventListener('click',onTickClick);
+  } else if(el.classList&&el.classList.contains('tk1')){
+   el.addEventListener('click',onTk1Click);
   } else {
    el.addEventListener('change',onChg);
    if(el.tagName!=='SELECT')el.addEventListener('input',onChg);
   }
  });
+}
+
+function onTk1Click(e){
+ const el=e.currentTarget;
+ const i=parseInt(el.dataset.i),f=el.dataset.f,pairField=el.dataset.pair;
+ const tr=el.closest('tr');
+ const pairEl=tr.querySelector(`[data-f="${pairField}"].tk1`);
+
+ const wasOn=el.classList.contains('run-on')||el.classList.contains('stp-on');
+ const newVal=wasOn?'':'x';
+
+ // Set giá trị ô được click
+ if(newVal){
+  el.textContent='✔';
+  el.classList.add(el.dataset.f.endsWith('run')||el.dataset.f==='run'?'run-on':'stp-on');
+ } else {
+  el.textContent='';
+  el.classList.remove('run-on','stp-on');
+ }
+
+ // Tắt ô đối lập (luôn tắt khi 1 ô được tick)
+ if(pairEl){
+  pairEl.textContent='';
+  pairEl.classList.remove('run-on','stp-on');
+ }
+
+ // Lưu giá trị: ô được tick = 'x', ô đối lập = ''
+ const fakeE1={target:{dataset:{i:String(i),f},value:newVal,tagName:'SPAN'}};
+ onChg(fakeE1);
+ if(pairEl){
+  const fakeE2={target:{dataset:{i:String(i),f:pairField},value:'',tagName:'SPAN'}};
+  onChg(fakeE2);
+ }
 }
 
 function onTickClick(e){
