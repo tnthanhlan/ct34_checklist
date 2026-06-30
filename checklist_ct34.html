@@ -102,19 +102,18 @@ tbody td{padding:3px 4px;border-right:1px solid var(--bd);vertical-align:middle;
 .tk1.stp-on{background:var(--rw);border-color:var(--rb);color:var(--rt);font-weight:700}
 .rW td:not(.nm):not(.sk):not(.sk2){background:var(--yw)!important}
 .rD td:not(.nm):not(.sk):not(.sk2){background:var(--rw)!important}
+.acc-btn{padding:14px 28px;background:white;color:#1e3a5f;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;min-width:260px;text-align:left;transition:transform .1s,box-shadow .1s}
+.acc-btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.25)}
 </style>
 </head>
 <body>
 
-<div id="login-screen" style="display:none;position:fixed;inset:0;background:#1e3a5f;z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:16px">
+<div id="login-screen" style="display:none;position:fixed;inset:0;background:#1e3a5f;z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:14px">
   <div style="font-size:48px">⚡</div>
   <h2 style="color:white;font-size:22px;font-weight:700">Checklist CT34</h2>
   <p id="loading-msg" style="color:rgba(255,255,255,.7);font-size:14px">Đang kiểm tra quyền truy cập...</p>
   <p id="login-msg" style="color:#fbbf24;font-size:13px"></p>
-  <a id="login-btn" href="#" onclick="window.location.href=API_URL+'?action=getUser'" 
-     style="display:inline-block;padding:10px 24px;background:#4285f4;color:white;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;margin-top:8px">
-    🔐 Đăng nhập với Google
-  </a>
+  <div id="login-btn-area" style="display:flex;flex-direction:column;gap:10px;margin-top:6px"></div>
   <p style="color:rgba(255,255,255,.5);font-size:11px;margin-top:8px">Chỉ tài khoản được cấp phép mới truy cập được</p>
 </div>
 
@@ -206,10 +205,14 @@ function init() {
 }
 
 // =============================================
-// XÁC THỰC GOOGLE
+// XÁC THỰC - Chọn tài khoản (lưu trong trình duyệt, không cần Google OAuth)
 // =============================================
+const ACCOUNTS = [
+  { email: 'tnthanhlan@gmail.com',     label: 'Admin – Thành',         role: 'admin'  },
+  { email: 'doisuachuact34@gmail.com', label: 'Đội sửa chữa CT34',     role: 'member' },
+];
+
 function checkAuth() {
-  // Nếu chưa cấu hình API, dùng offline mode
   if (OFFLINE_MODE) {
     USER = { email: 'offline@local', role: 'admin' };
     showUI();
@@ -217,12 +220,39 @@ function checkAuth() {
     return;
   }
 
+  const savedEmail = localStorage.getItem('ct34_user_email');
+  if (savedEmail) {
+    verifyAndEnter(savedEmail);
+  } else {
+    showAccountPicker();
+  }
+}
+
+function showAccountPicker() {
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('login-btn-area').innerHTML = ACCOUNTS.map(a =>
+    `<button class="acc-btn" onclick="selectAccount('${a.email}')">
+       ${a.role==='admin'?'👑':'👤'} ${a.label}<br><span style="font-size:11px;opacity:.6">${a.email}</span>
+     </button>`
+  ).join('');
+  document.getElementById('loading-msg').textContent = 'Chọn tài khoản của bạn:';
+  document.getElementById('login-msg').textContent = '';
+}
+
+function selectAccount(email) {
+  localStorage.setItem('ct34_user_email', email);
+  verifyAndEnter(email);
+}
+
+function verifyAndEnter(email) {
   showLoading('Đang xác thực...');
-  // Gọi API để kiểm tra quyền
-  callAPI('getUser')
+  document.getElementById('login-btn-area').innerHTML = '';
+  callAPI('getUser', { email })
     .then(data => {
-      if (data.error) {
-        showLogin(data.error);
+      if (data.error || !data.user) {
+        localStorage.removeItem('ct34_user_email');
+        showLogin(data.error || 'Tài khoản không hợp lệ');
+        setTimeout(showAccountPicker, 1500);
       } else {
         USER = data.user;
         showUI();
@@ -230,8 +260,22 @@ function checkAuth() {
       }
     })
     .catch(() => {
-      showLogin('Cần đăng nhập bằng tài khoản Google được cấp phép');
+      // Lỗi mạng: vẫn cho vào dùng tạm với quyền đã lưu, để không bị kẹt khi mất mạng
+      const acc = ACCOUNTS.find(a => a.email === email);
+      if (acc) {
+        USER = { email: acc.email, role: acc.role };
+        showUI();
+        loadFromLocal();
+        showToast('⚠ Không kết nối được server, đang dùng chế độ tạm', 'warn');
+      } else {
+        showLogin('Không kết nối được server');
+      }
     });
+}
+
+function switchAccount() {
+  localStorage.removeItem('ct34_user_email');
+  location.reload();
 }
 
 function showLogin(msg) {
@@ -243,7 +287,6 @@ function showLogin(msg) {
 function showLoading(msg) {
   document.getElementById('loading-msg').textContent = msg || 'Đang tải...';
   document.getElementById('login-screen').style.display = 'flex';
-  document.getElementById('login-btn').style.display = 'none';
   document.getElementById('app').style.display = 'none';
 }
 
@@ -254,7 +297,8 @@ function showUI() {
   // Hiển thị user info
   const uinfo = document.getElementById('user-info');
   if (USER) {
-    uinfo.textContent = USER.email + (USER.role==='admin' ? ' 👑' : ' 👤');
+    uinfo.innerHTML = USER.email + (USER.role==='admin' ? ' 👑' : ' 👤') +
+      ' <a href="#" onclick="switchAccount();return false;" style="color:#fbbf24;text-decoration:underline;margin-left:6px;font-size:11px">(đổi)</a>';
     // Ẩn nút admin nếu không phải admin
     if (USER.role !== 'admin') {
       document.querySelectorAll('.admin-only').forEach(el => el.style.display='none');
@@ -322,9 +366,13 @@ async function callAPI(action, params={}, body=null) {
     return {};
   }
 
+  // Luôn gắn email người dùng hiện tại (hoặc email đã lưu nếu USER chưa set, dùng lúc xác thực ban đầu)
+  const myEmail = (USER && USER.email) || localStorage.getItem('ct34_user_email') || '';
+  const fullParams = { email: myEmail, ...params };
+
   if (!body) {
     // GET: dùng JSONP để đọc được response (vượt CORS)
-    return jsonpRequest(action, params);
+    return jsonpRequest(action, fullParams);
   }
 
   // POST: dùng no-cors - gửi được nhưng KHÔNG đọc được response
@@ -334,7 +382,7 @@ async function callAPI(action, params={}, body=null) {
     method: 'POST',
     mode: 'no-cors',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // tránh preflight OPTIONS
-    body: JSON.stringify({ action, ...body })
+    body: JSON.stringify({ action, email: myEmail, ...body })
   });
   // Không đọc được kết quả thật, giả định thành công nếu không exception
   return { success: true };
