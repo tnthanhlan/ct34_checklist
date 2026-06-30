@@ -138,6 +138,7 @@ tbody td{padding:3px 4px;border-right:1px solid var(--bd);vertical-align:middle;
     <div id="ch">
      <div><h2 id="sht">–</h2><div class="me" id="shm"></div></div>
      <div style="margin-left:auto;display:flex;gap:6px">
+      <button class="btn" onclick="showHistory()">🕐 Lịch sử</button>
       <button class="btn" onclick="clrSheet()">🗑 Xóa phiên</button>
       <button class="btn pri" onclick="savSheet()">✅ Lưu phiên</button>
      </div>
@@ -160,6 +161,37 @@ tbody td{padding:3px 4px;border-right:1px solid var(--bd);vertical-align:middle;
   </div>
  </div>
 </div>
+
+<!-- MODAL LỊCH SỬ -->
+<div id="hist-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:5000;align-items:center;justify-content:center">
+ <div style="background:white;border-radius:10px;width:90%;max-width:900px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.3)">
+  <div style="padding:14px 18px;background:var(--hd);color:white;display:flex;align-items:center;gap:10px">
+   <h3 style="font-size:15px;font-weight:600">🕐 Lịch sử nhập liệu</h3>
+   <span id="hist-sheet-name" style="font-size:12px;opacity:.8"></span>
+   <button onclick="closeHistory()" style="margin-left:auto;background:none;border:none;color:white;font-size:20px;cursor:pointer;line-height:1">✕</button>
+  </div>
+  <div style="padding:10px 18px;background:#f8fafc;border-bottom:1px solid var(--bd);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+   <label style="font-size:12px;color:var(--mu)">Lọc theo hàng (STT thiết bị):</label>
+   <input type="number" id="hist-row-filter" placeholder="Tất cả" style="width:90px;padding:4px 8px;border:1px solid var(--bd);border-radius:6px;font-size:12px">
+   <button class="btn sm" onclick="loadHistory()">🔄 Tải lại</button>
+   <span id="hist-loading" style="font-size:12px;color:var(--mu)"></span>
+  </div>
+  <div style="flex:1;overflow:auto;padding:0">
+   <table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead>
+     <tr style="position:sticky;top:0;background:#1e3a5f;color:white">
+      <th style="padding:8px;text-align:left">Thời gian</th>
+      <th style="padding:8px;text-align:left">Người nhập</th>
+      <th style="padding:8px;text-align:center">Hàng</th>
+      <th style="padding:8px;text-align:left">Thay đổi</th>
+     </tr>
+    </thead>
+    <tbody id="hist-tbody"></tbody>
+   </table>
+  </div>
+ </div>
+</div>
+
 <script>
 
 // =============================================
@@ -1035,6 +1067,69 @@ function clrSheet(){
  if(DIRTY[CUR])delete DIRTY[CUR];
  localStorage.setItem('ct34v4',JSON.stringify(DIRTY));
  renderTable();
+}
+
+// =============================================
+// LỊCH SỬ NHẬP LIỆU - xem dữ liệu các lần check trước
+// =============================================
+function showHistory(){
+ if(!CUR){ showToast('⚠ Hãy chọn 1 sheet trước', 'warn'); return; }
+ if(OFFLINE_MODE){ showToast('⚠ Chế độ offline không có lịch sử server', 'warn'); return; }
+ document.getElementById('hist-sheet-name').textContent = '— ' + CUR;
+ document.getElementById('hist-row-filter').value = '';
+ document.getElementById('hist-modal').style.display = 'flex';
+ loadHistory();
+}
+
+function closeHistory(){
+ document.getElementById('hist-modal').style.display = 'none';
+}
+
+async function loadHistory(){
+ if(!CUR) return;
+ const tbody = document.getElementById('hist-tbody');
+ const loadingEl = document.getElementById('hist-loading');
+ const rowFilter = document.getElementById('hist-row-filter').value.trim();
+
+ loadingEl.textContent = 'Đang tải...';
+ tbody.innerHTML = '<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--mu)">Đang tải...</td></tr>';
+
+ try {
+  const params = { sheet: CUR, limit: 300 };
+  if (rowFilter) params.row = rowFilter;
+  const result = await callAPI('getHistory', params);
+
+  if (result.error) {
+   tbody.innerHTML = `<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--rt)">Lỗi: ${result.error}</td></tr>`;
+   loadingEl.textContent = '';
+   return;
+  }
+
+  const history = result.history || [];
+  if (!history.length) {
+   tbody.innerHTML = '<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--mu)">Chưa có lịch sử nhập liệu cho sheet này</td></tr>';
+   loadingEl.textContent = '';
+   return;
+  }
+
+  tbody.innerHTML = history.map(h => {
+   let fieldsDisplay = h.fields;
+   try {
+    const parsed = JSON.parse(h.fields);
+    fieldsDisplay = Object.entries(parsed).filter(([k,v]) => v !== '' && v !== null).map(([k,v]) => `<b>${k}</b>=${v}`).join(', ') || '(không có thay đổi)';
+   } catch(e) {}
+   return `<tr style="border-bottom:1px solid var(--bd)">
+    <td style="padding:7px 8px;white-space:nowrap;font-size:11px;color:var(--mu)">${h.time}</td>
+    <td style="padding:7px 8px;font-size:11px">${h.email}</td>
+    <td style="padding:7px 8px;text-align:center;font-weight:600">${h.row}</td>
+    <td style="padding:7px 8px;font-size:11px">${fieldsDisplay}</td>
+   </tr>`;
+  }).join('');
+  loadingEl.textContent = `${history.length} bản ghi`;
+ } catch(e) {
+  tbody.innerHTML = '<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--rt)">Không kết nối được server</td></tr>';
+  loadingEl.textContent = '';
+ }
 }
 
 function expData(){
