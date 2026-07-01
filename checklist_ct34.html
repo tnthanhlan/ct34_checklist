@@ -122,6 +122,7 @@ tbody td{padding:3px 4px;border-right:1px solid var(--bd);vertical-align:middle;
   <h1>⚡ Checklist CT34</h1>
   <span class="sub">Hệ thống kiểm tra thiết bị – Xưởng Sửa Chữa</span>
   <div style="margin-left:auto;display:flex;gap:7px;align-items:center">
+   <button class="btn sm admin-only" onclick="clearAllLocal()" style="background:rgba(255,100,100,.2);color:#fca5a5;border-color:rgba(255,100,100,.4)">🗑 Xóa cache</button>
    <span id="user-info" style="font-size:12px;opacity:.85;margin-right:8px"></span><span id="clk" style="font-size:11px;opacity:.8"></span>
    <button class="btn sm" onclick="expData()" style="background:rgba(255,255,255,.15);color:white;border-color:rgba(255,255,255,.3)">💾 Xuất dữ liệu</button>
   </div>
@@ -1219,6 +1220,14 @@ function expData(){
  const blob=new Blob([JSON.stringify({time:new Date().toISOString(),data:DIRTY},null,2)],{type:'application/json'});
  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
  a.download='CT34_'+new Date().toISOString().slice(0,10)+'.json';a.click();
+}
+
+function clearAllLocal(){
+ if(!confirm('Xóa toàn bộ dữ liệu cache local?\n(Không ảnh hưởng dữ liệu đã lưu trên server/Google Sheets)'))return;
+ localStorage.removeItem('ct34v4');
+ DIRTY={};
+ renderTable();
+ showToast('✅ Đã xóa cache local');
 }
 
 init();
