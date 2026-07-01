@@ -502,13 +502,95 @@ function openSheet(sn){
  document.getElementById('wc').style.display='none';
  const ca=document.getElementById('ca');ca.style.display='flex';
  document.getElementById('sht').textContent=sn;
- const info=DB[sn];CD=info?info.devices:[];
- document.getElementById('shm').textContent=CD.length+' thiết bị';
  const d=new Date();
  document.getElementById('id').value=d.toISOString().slice(0,10);
  document.getElementById('it').value=d.toTimeString().slice(0,5);
  if(USER)document.getElementById('in').value=USER.email.split('@')[0];
+
+ // Load dữ liệu thật từ Google Sheets (không chỉ dùng DB_LOCAL tĩnh)
+ const info=DB[sn];
+ CD=info?info.devices:[];
+ document.getElementById('shm').textContent=(CD.length||'?')+' thiết bị';
  renderTable();
+
+ if(!OFFLINE_MODE){
+  // Tải dữ liệu mới nhất từ server để cập nhật các ô đã nhập trước đó
+  document.getElementById('shm').textContent=(CD.length||'?')+' thiết bị ⟳';
+  callAPI('getData',{sheet:sn})
+   .then(res=>{
+    if(res.data && res.data.length){
+     mergeServerData(sn, res.data);
+     renderTable();
+    }
+    document.getElementById('shm').textContent=(CD.length||'?')+' thiết bị';
+   })
+   .catch(()=>{
+    document.getElementById('shm').textContent=(CD.length||'?')+' thiết bị (offline)';
+   });
+ }
+}
+
+// Merge dữ liệu từ server vào CD (danh sách thiết bị)
+// Ghi dữ liệu thật của các ô đã nhập trước vào đúng field của từng device
+function mergeServerData(sn, rows){
+ const info=DB[sn];
+ if(!info||!info.devices)return;
+ const devs=info.devices;
+ const colMap=getClientColMap(sn);
+ if(!colMap)return;
+
+ // rows[0] = header row, dữ liệu bắt đầu từ index stt_data_start
+ // Lấy stt_row từ info
+ const sttRow=(info.type==='motor_bom')?9:
+               (info.type==='cdccdcl'||info.type==='can_xrt')?9:9;
+ const dataStartRow=sttRow+3; // row index trong Sheets (1-based) -> index trong rows array (0-based)
+
+ devs.forEach((dev,devIdx)=>{
+  // rowIndex trong Sheets = dataStartRow + offset
+  // Tìm row tương ứng trong rows array
+  const sheetRowIdx = dataStartRow - 1 + getDeviceRowOffset(sn, devIdx);
+  if(sheetRowIdx>=rows.length)return;
+  const row=rows[sheetRowIdx];
+  // Ghi vào DIRTY để hiển thị (không ghi đè local edits đang làm)
+  if(!DIRTY[sn])DIRTY[sn]={};
+  if(!DIRTY[sn][devIdx])DIRTY[sn][devIdx]={};
+  Object.entries(colMap).forEach(([field,col])=>{
+   const val=row[col-1]; // col là 1-based, array là 0-based
+   if(val!==null&&val!==undefined&&val!==''){
+    if(DIRTY[sn][devIdx][field]===undefined){
+     DIRTY[sn][devIdx][field]=val;
+    }
+   }
+  });
+ });
+}
+
+function getDeviceRowOffset(sn,devIdx){
+ const info=DB[sn];if(!info)return devIdx;
+ // Đếm số hàng thật từ đầu data đến device này (vì có thể có merge rows)
+ // Đơn giản: dùng chính devIdx (mỗi device = 1 hàng trong data)
+ return devIdx;
+}
+
+function getClientColMap(sn){
+ // Map field -> số cột (1-based) tương ứng với getColumnMap bên server
+ // Motor sheets
+ const motorMap={ngay:4,gio:5,nguoi:6,run:7,stp:8,
+  I_U_u:9,I_U_l:10,I_V_u:11,I_V_l:12,I_W_u:13,I_W_l:14,
+  hn_u_t0:16,hn_u_nok:17,hn_v_t0:18,hn_v_nok:19,hn_w_t0:20,hn_w_nok:21,
+  t_dc:22,t_s2:23,t_s3:24,obi_khop:25,obi_dend:26,obi_ndend:27,
+  tu_all:28,tu_q:29,tu_k1:30,tu_k2:31,tu_k3:32,
+  canh_bao:39,danh_gia:40,dien_giai:41,ket_luan:42,ghi_chu:43};
+ const bomMap={...motorMap,ngay:5,gio:6,nguoi:7,run:8,stp:9,
+  I_U_u:10,I_U_l:11,I_V_u:12,I_V_l:13,I_W_u:14};
+ const tbaMap={ngay:4,gio:5,nguoi:6,ok:9,nok:10,
+  t341:11,t342:12,t201:13,txln_t1:14,txln_t2:15,
+  canh_bao:16,danh_gia:17,dien_giai:18,ket_luan:19,ghi_chu:20};
+ const info=DB[sn];if(!info)return motorMap;
+ const tp=info.type;
+ if(tp==='motor_bom')return bomMap;
+ if(tp==='tba')return tbaMap;
+ return motorMap;
 }
 
 // =============================================
