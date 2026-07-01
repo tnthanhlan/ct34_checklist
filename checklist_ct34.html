@@ -539,27 +539,37 @@ function mergeServerData(sn, rows){
  const colMap=getClientColMap(sn);
  if(!colMap)return;
 
- // rows[0] = header row, dữ liệu bắt đầu từ index stt_data_start
- // Lấy stt_row từ info
- const sttRow=(info.type==='motor_bom')?9:
-               (info.type==='cdccdcl'||info.type==='can_xrt')?9:9;
- const dataStartRow=sttRow+3; // row index trong Sheets (1-based) -> index trong rows array (0-based)
+ const sttRow=9; // hàng STT trong tất cả các sheet
+ const dataStartRow=sttRow+3; // hàng đầu tiên của data (1-based)
 
  devs.forEach((dev,devIdx)=>{
-  // rowIndex trong Sheets = dataStartRow + offset
-  // Tìm row tương ứng trong rows array
-  const sheetRowIdx = dataStartRow - 1 + getDeviceRowOffset(sn, devIdx);
+  const sheetRowIdx = dataStartRow - 1 + devIdx; // chuyển về 0-based index trong mảng rows
   if(sheetRowIdx>=rows.length)return;
   const row=rows[sheetRowIdx];
-  // Ghi vào DIRTY để hiển thị (không ghi đè local edits đang làm)
   if(!DIRTY[sn])DIRTY[sn]={};
   if(!DIRTY[sn][devIdx])DIRTY[sn][devIdx]={};
   Object.entries(colMap).forEach(([field,col])=>{
-   const val=row[col-1]; // col là 1-based, array là 0-based
-   if(val!==null&&val!==undefined&&val!==''){
-    if(DIRTY[sn][devIdx][field]===undefined){
-     DIRTY[sn][devIdx][field]=val;
-    }
+   let val=row[col-1]; // col 1-based -> index 0-based
+   if(val===null||val===undefined||val==='')return;
+   // Format ngày từ Date object -> yyyy-MM-dd (cho input type=date)
+   if(field==='ngay'&&typeof val==='string'&&val.length){
+    // Có thể là chuỗi ngày từ Sheets như "5/19/2026" hoặc Date object serialized
+    try{
+     const parts=val.split('/');
+     if(parts.length===3){
+      val=`${parts[2]}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`;
+     }
+    }catch(e){}
+   }
+   // Format giờ -> HH:mm (cho input type=time)
+   if(field==='gio'&&typeof val==='string'&&val.length){
+    // Sheets có thể trả về "8h-11h" hoặc "8:00" hoặc Date serial
+    // Chỉ lấy nếu đúng dạng HH:mm
+    if(!/^\d{1,2}:\d{2}$/.test(val))return; // bỏ qua format không hợp lệ
+   }
+   // Không ghi đè nếu user đang có local edit
+   if(DIRTY[sn][devIdx][field]===undefined){
+    DIRTY[sn][devIdx][field]=val;
    }
   });
  });
