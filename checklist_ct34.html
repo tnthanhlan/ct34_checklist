@@ -240,33 +240,38 @@ const SCH={
 function buildReminder() {
  const now = new Date();
  const thu = now.getDay(); // 0=CN,1=T2,...6=T7
- const ngayTrongThang = now.getDate();
- // Xác định tuần lẻ/chẵn trong tháng
- const tuanSo = Math.ceil(ngayTrongThang / 7);
- const isLe = tuanSo % 2 !== 0;
+ const ngay = now.getDate();
+ const thang = now.getMonth() + 1; // 1-12
+
+ // Tuần thứ mấy trong tháng (T1/T2/T3/T4)
+ const tuanTrongThang = Math.ceil(ngay / 7); // 1,2,3,4
+ const isThangLe = thang % 2 !== 0;
+
  const thuTen = ['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'][thu];
-
- // Lịch theo SCH - lấy danh sách việc hôm nay
  const thuKey = ['CN','THỨ 2','THỨ 3','THỨ 4','THỨ 5','THỨ 6','THỨ 7'][thu];
- const lichHom = SCH[thuKey];
- let viecHomNay = [];
- if (lichHom) {
-  const ds = isLe ? lichHom.le : lichHom.chan;
-  const unique = [...new Set(ds.filter(Boolean))];
-  viecHomNay = unique;
- }
 
+ // SCH[thuKey].le = [T1,T2,T3,T4] cho tháng lẻ
+ // SCH[thuKey].chan = [T1,T2,T3,T4] cho tháng chẵn
+ const lichHom = SCH[thuKey];
  const remind = document.getElementById('remind-text');
  const bar = document.getElementById('remind-bar');
  if (!remind || !bar) return;
 
- if (viecHomNay.length === 0) {
-  remind.textContent = `${thuTen} tuần ${isLe?'lẻ':'chẵn'} — Không có lịch kiểm tra định kỳ hôm nay ✅`;
+ let viec = '';
+ if (lichHom) {
+  const ds = isThangLe ? lichHom.le : lichHom.chan;
+  // Lấy đúng cột tuần hiện tại (index 0=T1, 1=T2, 2=T3, 3=T4)
+  const idx = Math.min(tuanTrongThang - 1, ds.length - 1);
+  viec = ds[idx] || '';
+ }
+
+ const label = `${thuTen} — Tuần ${tuanTrongThang} tháng ${thang} (${isThangLe?'lẻ':'chẵn'})`;
+
+ if (!viec) {
+  remind.textContent = `${label} — ✅ Không có lịch kiểm tra định kỳ hôm nay`;
   remind.style.color = '#86efac';
-  remind.style.animation = 'blink-green 1.5s ease-in-out infinite';
  } else {
-  const dsTen = viecHomNay.join(' 🔸 ');
-  remind.textContent = `${thuTen} tuần ${isLe?'lẻ':'chẵn'} — Cần kiểm tra hôm nay: 🔸 ${dsTen}`;
+  remind.textContent = `${label} — ⚠ Cần kiểm tra: ${viec}`;
  }
 }
 
