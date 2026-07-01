@@ -501,101 +501,144 @@ function openSheet(sn){
  CUR=sn;
  document.querySelectorAll('.si').forEach(el=>el.classList.toggle('ac',el.dataset.s===sn));
  document.getElementById('wc').style.display='none';
- const ca=document.getElementById('ca');ca.style.display='flex';
+ document.getElementById('ca').style.display='flex';
  document.getElementById('sht').textContent=sn;
+ const info=DB[sn];
+ CD=info?info.devices:[];
+ document.getElementById('shm').textContent=(CD.length||'?')+' thiết bị';
  const d=new Date();
  document.getElementById('id').value=d.toISOString().slice(0,10);
  document.getElementById('it').value=d.toTimeString().slice(0,5);
  if(USER)document.getElementById('in').value=USER.email.split('@')[0];
 
- // Load dữ liệu thật từ Google Sheets (không chỉ dùng DB_LOCAL tĩnh)
- const info=DB[sn];
- CD=info?info.devices:[];
- document.getElementById('shm').textContent=(CD.length||'?')+' thiết bị';
+ // Reset DIRTY cho sheet này mỗi lần mở để luôn load mới từ server
+ if(DIRTY[sn])delete DIRTY[sn];
  renderTable();
 
  if(!OFFLINE_MODE){
-  // Tải dữ liệu mới nhất từ server để cập nhật các ô đã nhập trước đó
   document.getElementById('shm').textContent=(CD.length||'?')+' thiết bị ⟳';
   callAPI('getData',{sheet:sn})
    .then(res=>{
-    if(res.data && res.data.length){
-     mergeServerData(sn, res.data);
+    if(res.data&&res.data.length){
+     mergeServerData(sn,res.data);
      renderTable();
     }
     document.getElementById('shm').textContent=(CD.length||'?')+' thiết bị';
    })
-   .catch(()=>{
-    document.getElementById('shm').textContent=(CD.length||'?')+' thiết bị (offline)';
-   });
+   .catch(()=>document.getElementById('shm').textContent=(CD.length||'?')+' thiết bị (offline)');
  }
 }
 
-// Merge dữ liệu từ server vào CD (danh sách thiết bị)
-// Ghi dữ liệu thật của các ô đã nhập trước vào đúng field của từng device
-function mergeServerData(sn, rows){
- const info=DB[sn];
- if(!info||!info.devices)return;
- const devs=info.devices;
- const colMap=getClientColMap(sn);
- if(!colMap)return;
-
- devs.forEach((dev,devIdx)=>{
-  // Dùng _row thực tế (1-based) -> chuyển sang 0-based index trong mảng rows
-  const sheetRowIdx = (dev._row || (devIdx + 12)) - 1;
-  if(sheetRowIdx<0||sheetRowIdx>=rows.length)return;
-  const row=rows[sheetRowIdx];
-  if(!DIRTY[sn])DIRTY[sn]={};
-  if(!DIRTY[sn][devIdx])DIRTY[sn][devIdx]={};
-  Object.entries(colMap).forEach(([field,col])=>{
-   let val=row[col-1];
-   if(val===null||val===undefined||val==='')return;
-   if(field==='ngay'&&typeof val==='string'&&val.length){
-    try{
-     const parts=val.split('/');
-     if(parts.length===3){
-      val=`${parts[2]}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`;
-     }
-    }catch(e){}
-   }
-   if(field==='gio'&&typeof val==='string'&&val.length){
-    if(!/^\d{1,2}:\d{2}/.test(val))return;
-   }
-   // Ghi đè nếu field chưa có hoặc đang rỗng (server data được ưu tiên hơn rỗng)
-   const existing = DIRTY[sn][devIdx][field];
-   if(existing===undefined||existing===null||existing===''){
-    DIRTY[sn][devIdx][field]=val;
-   }
-  });
- });
-}
-
-function getDeviceRowOffset(sn,devIdx){
- const info=DB[sn];if(!info)return devIdx;
- // Đếm số hàng thật từ đầu data đến device này (vì có thể có merge rows)
- // Đơn giản: dùng chính devIdx (mỗi device = 1 hàng trong data)
- return devIdx;
-}
-
-function getClientColMap(sn){
- // Map field -> số cột (1-based) tương ứng với getColumnMap bên server
- // Motor sheets
- const motorMap={ngay:4,gio:5,nguoi:6,run:7,stp:8,
+// =============================================
+// MERGE DATA TỪ SERVER VÀO DISPLAY
+// =============================================
+// colMap: field -> số cột 1-based trong Sheets
+const COL_MAP = {
+ motor: {
+  ngay:4,gio:5,nguoi:6,run:7,stp:8,
   I_U_u:9,I_U_l:10,I_V_u:11,I_V_l:12,I_W_u:13,I_W_l:14,
   hn_u_t0:16,hn_u_nok:17,hn_v_t0:18,hn_v_nok:19,hn_w_t0:20,hn_w_nok:21,
-  t_dc:22,t_s2:23,t_s3:24,obi_khop:25,obi_dend:26,obi_ndend:27,
+  t_dc:22,t_s2:23,t_s3:24,
+  obi_khop:25,obi_dend:26,obi_ndend:27,
   tu_all:28,tu_q:29,tu_k1:30,tu_k2:31,tu_k3:32,
-  canh_bao:39,danh_gia:40,dien_giai:41,ket_luan:42,ghi_chu:43};
- const bomMap={...motorMap,ngay:5,gio:6,nguoi:7,run:8,stp:9,
-  I_U_u:10,I_U_l:11,I_V_u:12,I_V_l:13,I_W_u:14};
- const tbaMap={ngay:4,gio:5,nguoi:6,ok:9,nok:10,
+  obi_dend2:33,obi_ndend2:34,
+  tong_the_ip:35,air_flow:36,khop_noi_hgt:37,noise:38,
+  canh_bao:39,danh_gia:40,dien_giai:41,ket_luan:42,ghi_chu:43
+ },
+ motor_bom: {
+  ngay:5,gio:6,nguoi:7,run:8,stp:9,
+  I_U_u:10,I_U_l:11,I_V_u:12,I_V_l:13,I_W_u:14,
+  hn_u_t0:16,hn_u_nok:17,hn_v_t0:18,hn_v_nok:19,hn_w_t0:20,hn_w_nok:21,
+  t_dc:22,t_s2:23,t_s3:24,
+  obi_khop:25,obi_dend:26,obi_ndend:27,
+  tu_all:28,tu_q:29,tu_k1:30,tu_k2:31,tu_k3:32,
+  canh_bao:39,danh_gia:40,dien_giai:41,ket_luan:42,ghi_chu:43
+ },
+ tba: {
+  ngay:4,gio:5,nguoi:6,ok:9,nok:10,
   t341:11,t342:12,t201:13,txln_t1:14,txln_t2:15,
-  canh_bao:16,danh_gia:17,dien_giai:18,ket_luan:19,ghi_chu:20};
- const info=DB[sn];if(!info)return motorMap;
- const tp=info.type;
- if(tp==='motor_bom')return bomMap;
- if(tp==='tba')return tbaMap;
- return motorMap;
+  canh_bao:16,danh_gia:17,dien_giai:18,ket_luan:19,ghi_chu:20
+ },
+ cdccdcl: {
+  ngay:2,ok:7,nok:8,
+  t341_ca:10,t341_ha:11,t342_ca:12,t342_ha:13,
+  t201_ba:14,t201_cctr:16,txln_t1:18,txln_t2:20,
+  canh_bao:27,danh_gia:28,dien_giai:29,ket_luan:30,ghi_chu:31
+ },
+ nha_tram: {
+  HT1_run:4,HT1_stop:5,HT1_ok:6,HT1_nok:7,HT1_on_ok:9,HT1_on_nok:10,HT1_am:11,HT1_nhiet:12,HT1_gtd:13,
+  HT2_run:14,HT2_stop:15,HT2_ok:16,HT2_nok:17,HT2_on_ok:19,HT2_on_nok:20,HT2_am:21,HT2_nhiet:22,HT2_gtd:23,
+  CT32_run:24,CT32_stop:25,CT32_ok:26,CT32_nok:27,CT32_on_ok:28,CT32_on_nok:29,CT32_am:30,CT32_nhiet:31,CT32_gtd:32,
+  XLN_run:33,XLN_stop:34,XLN_ok:35,XLN_nok:36,XLN_on_ok:37,XLN_on_nok:38,XLN_am:39,XLN_nhiet:40,XLN_gtd:41,
+  DV_run:42,DV_stop:43,DV_ok:44,DV_nok:45,DV_on_ok:46,DV_on_nok:47,DV_am:48,DV_nhiet:49,DV_gtd:50
+ },
+ can_oto: {
+  ngay:2,
+  CT341_run:7,CT341_stop:8,CT341_ok:9,CT341_nok:10,CT341_ma:11,CT341_tri:12,CT341_gtc:13,
+  CT342_run:14,CT342_stop:15,CT342_ok:16,CT342_nok:17,CT342_ma:18,CT342_tri:19,CT342_gtc:20,
+  CT345_run:21,CT345_stop:22,CT345_ok:23,CT345_nok:24,CT345_ma:25,CT345_tri:26,CT345_gtc:27,
+  CT346_run:28,CT346_stop:29,CT346_ok:30,CT346_nok:31,CT346_ma:32,CT346_tri:33,CT346_gtc:34,
+  CT348_run:35,CT348_stop:36,CT348_ok:37,CT348_nok:38,CT348_ma:39,CT348_tri:40,CT348_gtc:41,
+  CT349_run:42,CT349_stop:43,CT349_ok:44,CT349_nok:45,CT349_ma:46,CT349_tri:47,CT349_gtc:48,
+  dien_giai:49,ket_luan:50,ghi_chu:51
+ },
+ can_xrt: {
+  ngay:2,run:7,stop:8,ok:9,nok:10,
+  ma_bao:11,tri_so:12,gia_tri_tc:13,
+  dien_giai:14,ket_luan:15,ghi_chu:16
+ },
+ ht_dem: {
+  ngay:4,
+  M12_run:5,M12_stop:6,M12_ok:7,M12_nok:8,M12_ok2:10,M12_nok2:11,
+  M34_run:15,M34_stop:16,M34_ok:17,M34_nok:18,M34_ok2:20,M34_nok2:21,
+  M68_run:25,M68_stop:26,M68_ok:27,M68_nok:28,M68_ok2:30,M68_nok2:31,
+  M10_run:35,M10_stop:36,M10_ok:37,M10_nok:38,M10_ok2:40,M10_nok2:41,
+  CT1_run:45,CT1_stop:46,CT1_ok:47,CT1_nok:48,CT1_ok2:50,CT1_nok2:51,
+  M129_run:55,M129_stop:56,M129_ok:57,M129_nok:58,M129_ok2:60,M129_nok2:61,
+  CT2_run:65,CT2_stop:66,CT2_ok:67,CT2_nok:68,CT2_ok2:70,CT2_nok2:71
+ }
+};
+
+function getColMap(sn){
+ const info=DB[sn];
+ if(!info)return COL_MAP.motor;
+ return COL_MAP[info.type]||COL_MAP.motor;
+}
+
+function getSheetRowIndex(devIdx){
+ const info=DB[CUR];
+ if(!info||!info.devices[devIdx])return devIdx+12;
+ return info.devices[devIdx]._row||(devIdx+12);
+}
+
+function mergeServerData(sn,rows){
+ const info=DB[sn];if(!info||!info.devices)return;
+ const colMap=getColMap(sn);
+ if(!DIRTY[sn])DIRTY[sn]={};
+ info.devices.forEach((dev,devIdx)=>{
+  const rowIdx=(dev._row||0)-1; // 0-based index trong mảng rows
+  if(rowIdx<0||rowIdx>=rows.length)return;
+  const row=rows[rowIdx];
+  if(!DIRTY[sn][devIdx])DIRTY[sn][devIdx]={};
+  Object.entries(colMap).forEach(([field,col])=>{
+   let val=row[col-1]; // col 1-based -> 0-based
+   if(val===null||val===undefined||val==='')return;
+   val=String(val);
+   // Format ngày: "2026-07-01" hoặc "7/1/2026" -> "yyyy-MM-dd"
+   if(field==='ngay'){
+    const m=val.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if(m)val=`${m[3]}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;
+    else if(!/^\d{4}-\d{2}-\d{2}$/.test(val))return;
+   }
+   // Format giờ: "09:10" hoặc "9:10" -> "09:10"
+   if(field==='gio'){
+    const m=val.match(/^(\d{1,2}):(\d{2})$/);
+    if(m)val=m[1].padStart(2,'0')+':'+m[2];
+    else return; // bỏ qua format không hợp lệ
+   }
+   DIRTY[sn][devIdx][field]=val;
+  });
+ });
 }
 
 // =============================================
