@@ -539,21 +539,20 @@ function mergeServerData(sn, rows){
  const colMap=getClientColMap(sn);
  if(!colMap)return;
 
- const sttRow=9; // hàng STT trong tất cả các sheet
- const dataStartRow=sttRow+3; // hàng đầu tiên của data (1-based)
+ // data_start=12: sheet STT_row=9 | data_start=13: sheet STT_row=10
+ const ds12=['1 Nén khí','2 Tuyến VC xi măng Z1Z2','3 DC Máy đóng bao','4 DC Cấp liệu','20 Bơm Nước'];
+ const dataStart=ds12.includes(sn)?12:13;
 
  devs.forEach((dev,devIdx)=>{
-  const sheetRowIdx = dataStartRow - 1 + devIdx; // chuyển về 0-based index trong mảng rows
+  const sheetRowIdx = dataStart - 1 + devIdx; // chuyển về 0-based index trong mảng rows
   if(sheetRowIdx>=rows.length)return;
   const row=rows[sheetRowIdx];
   if(!DIRTY[sn])DIRTY[sn]={};
   if(!DIRTY[sn][devIdx])DIRTY[sn][devIdx]={};
   Object.entries(colMap).forEach(([field,col])=>{
-   let val=row[col-1]; // col 1-based -> index 0-based
+   let val=row[col-1];
    if(val===null||val===undefined||val==='')return;
-   // Format ngày từ Date object -> yyyy-MM-dd (cho input type=date)
    if(field==='ngay'&&typeof val==='string'&&val.length){
-    // Có thể là chuỗi ngày từ Sheets như "5/19/2026" hoặc Date object serialized
     try{
      const parts=val.split('/');
      if(parts.length===3){
@@ -561,13 +560,9 @@ function mergeServerData(sn, rows){
      }
     }catch(e){}
    }
-   // Format giờ -> HH:mm (cho input type=time)
    if(field==='gio'&&typeof val==='string'&&val.length){
-    // Sheets có thể trả về "8h-11h" hoặc "8:00" hoặc Date serial
-    // Chỉ lấy nếu đúng dạng HH:mm
-    if(!/^\d{1,2}:\d{2}$/.test(val))return; // bỏ qua format không hợp lệ
+    if(!/^\d{1,2}:\d{2}/.test(val))return;
    }
-   // Không ghi đè nếu user đang có local edit
    if(DIRTY[sn][devIdx][field]===undefined){
     DIRTY[sn][devIdx][field]=val;
    }
@@ -617,10 +612,12 @@ function gv(rowIdx, field) {
 // Row index trong Sheets (1-based, tính từ stt_row+3)
 function getSheetRowIndex(devIdx) {
  const info = DB[CUR];
- if (!info) return devIdx + 12; // fallback
- // Tìm row number thực tế từ data
- const dev = info.devices[devIdx];
- return dev._row || (devIdx + 12);
+ if (!info) return devIdx + 12;
+ // data_start=12: sheet STT_row=9 (1 Nén khí, 2 VCXM, 3 DC Máy đóng bao, 4 DC Cấp liệu, 20 Bơm Nước)
+ // data_start=13: tất cả sheet còn lại (Tuyến Máng, TBA, CDCCDCL, KT...)
+ const ds12 = ['1 Nén khí','2 Tuyến VC xi măng Z1Z2','3 DC Máy đóng bao','4 DC Cấp liệu','20 Bơm Nước'];
+ const dataStart = ds12.includes(CUR) ? 12 : 13;
+ return dataStart + devIdx;
 }
 
 // =============================================
