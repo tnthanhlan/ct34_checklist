@@ -104,6 +104,9 @@ tbody td{padding:3px 4px;border-right:1px solid var(--bd);vertical-align:middle;
 .rD td:not(.nm):not(.sk):not(.sk2){background:var(--rw)!important}
 .acc-btn{padding:14px 28px;background:white;color:#1e3a5f;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;min-width:260px;text-align:left;transition:transform .1s,box-shadow .1s}
 .acc-btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.25)}
+@keyframes blink{0%,100%{color:#fbbf24;text-shadow:0 0 8px rgba(251,191,36,.8)}50%{color:#f97316;text-shadow:0 0 16px rgba(249,115,22,.9)}}
+@keyframes slide{0%{transform:translateX(100%)}100%{transform:translateX(-100%)}}
+#remind-text{animation:blink 1.2s ease-in-out infinite, slide 18s linear infinite}
 </style>
 </head>
 <body>
@@ -126,6 +129,15 @@ tbody td{padding:3px 4px;border-right:1px solid var(--bd);vertical-align:middle;
    <span id="user-info" style="font-size:12px;opacity:.85;margin-right:8px"></span><span id="clk" style="font-size:11px;opacity:.8"></span>
    <button class="btn sm" onclick="expData()" style="background:rgba(255,255,255,.15);color:white;border-color:rgba(255,255,255,.3)">💾 Xuất dữ liệu</button>
   </div>
+ </div>
+ <!-- DÒNG NHẮC VIỆC HÔM NAY -->
+ <div id="remind-bar" style="background:#1a1a2e;border-bottom:2px solid #fbbf24;padding:6px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0">
+  <span style="font-size:13px;color:#fbbf24;font-weight:700;white-space:nowrap">📋 HÔM NAY:</span>
+  <div style="overflow:hidden;flex:1">
+   <span id="remind-text" style="display:inline-block;font-size:13px;font-weight:600;white-space:nowrap"></span>
+  </div>
+  <button onclick="document.getElementById('remind-bar').style.display='none'" 
+   style="background:none;border:none;color:#6b7280;cursor:pointer;font-size:16px;padding:0 4px;flex-shrink:0">✕</button>
  </div>
  <div id="wrap">
   <div id="sb">
@@ -225,8 +237,41 @@ const SCH={
 // =============================================
 // KHỞI TẠO
 // =============================================
+function buildReminder() {
+ const now = new Date();
+ const thu = now.getDay(); // 0=CN,1=T2,...6=T7
+ const ngayTrongThang = now.getDate();
+ // Xác định tuần lẻ/chẵn trong tháng
+ const tuanSo = Math.ceil(ngayTrongThang / 7);
+ const isLe = tuanSo % 2 !== 0;
+ const thuTen = ['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'][thu];
+
+ // Lịch theo SCH - lấy danh sách việc hôm nay
+ const thuKey = ['CN','THỨ 2','THỨ 3','THỨ 4','THỨ 5','THỨ 6','THỨ 7'][thu];
+ const lichHom = SCH[thuKey];
+ let viecHomNay = [];
+ if (lichHom) {
+  const ds = isLe ? lichHom.le : lichHom.chan;
+  const unique = [...new Set(ds.filter(Boolean))];
+  viecHomNay = unique;
+ }
+
+ const remind = document.getElementById('remind-text');
+ const bar = document.getElementById('remind-bar');
+ if (!remind || !bar) return;
+
+ if (viecHomNay.length === 0) {
+  remind.textContent = `${thuTen} tuần ${isLe?'lẻ':'chẵn'} — Không có lịch kiểm tra định kỳ hôm nay ✅`;
+  remind.style.color = '#86efac';
+  remind.style.animation = 'blink-green 1.5s ease-in-out infinite';
+ } else {
+  const dsTen = viecHomNay.join(' 🔸 ');
+  remind.textContent = `${thuTen} tuần ${isLe?'lẻ':'chẵn'} — Cần kiểm tra hôm nay: 🔸 ${dsTen}`;
+ }
+}
+
 function init() {
-  buildLich(); buildSB();
+  buildLich(); buildSB(); buildReminder();
   setInterval(()=>{document.getElementById('clk').textContent=new Date().toLocaleString('vi-VN')},1000);
   document.getElementById('clk').textContent=new Date().toLocaleString('vi-VN');
   const t=new Date();
