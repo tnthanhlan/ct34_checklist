@@ -241,9 +241,19 @@ function init() {
 // XÁC THỰC - Chọn tài khoản (lưu trong trình duyệt, không cần Google OAuth)
 // =============================================
 const ACCOUNTS = [
-  { email: 'tnthanhlan@gmail.com',     label: 'Admin – Thành',         role: 'admin'  },
-  { email: 'doisuachuact34@gmail.com', label: 'Đội sửa chữa CT34',     role: 'member' },
+  { email: 'tnthanhlan@gmail.com',     label: 'Admin – Thành',         role: 'admin',  needPin: true  },
+  { email: 'doisuachuact34@gmail.com', label: 'Đội sửa chữa CT34',     role: 'member', needPin: false },
 ];
+
+// Mã PIN admin - hash SHA-256 của PIN thật để tránh lộ trong source code
+// PIN hiện tại: "ct34admin" -> hash bên dưới
+// Để đổi PIN: chạy trong Console: crypto.subtle.digest('SHA-256', new TextEncoder().encode('pinmoi')).then(b=>console.log([...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')))
+const ADMIN_PIN_HASH = '4515a4b502b0b294396df04ac74f8eb235fb4ab438cf9d90df33a3b3f5a818c3';
+
+async function hashPin(pin) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pin));
+  return [...new Uint8Array(buf)].map(x=>x.toString(16).padStart(2,'0')).join('');
+}
 
 function checkAuth() {
   if (OFFLINE_MODE) {
@@ -273,6 +283,37 @@ function showAccountPicker() {
 }
 
 function selectAccount(email) {
+  const acc = ACCOUNTS.find(a => a.email === email);
+  if (acc && acc.needPin) {
+    // Yêu cầu nhập PIN cho admin
+    document.getElementById('login-btn-area').innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:10px;align-items:center">
+        <p style="color:white;font-size:13px">Nhập mã PIN quản trị:</p>
+        <input id="pin-input" type="password" maxlength="20" placeholder="Mã PIN..."
+          style="padding:10px 16px;border-radius:8px;border:none;font-size:16px;width:200px;text-align:center"
+          onkeydown="if(event.key==='Enter')confirmPin('${email}')">
+        <div style="display:flex;gap:8px">
+          <button class="acc-btn" onclick="confirmPin('${email}')" style="min-width:100px">✅ Xác nhận</button>
+          <button class="acc-btn" onclick="showAccountPicker()" style="min-width:100px;background:#6b7280">← Quay lại</button>
+        </div>
+        <p id="pin-error" style="color:#fca5a5;font-size:12px"></p>
+      </div>`;
+    setTimeout(()=>document.getElementById('pin-input')?.focus(), 100);
+  } else {
+    localStorage.setItem('ct34_user_email', email);
+    verifyAndEnter(email);
+  }
+}
+
+async function confirmPin(email) {
+  const pin = document.getElementById('pin-input')?.value || '';
+  if (!pin) { document.getElementById('pin-error').textContent = 'Vui lòng nhập mã PIN'; return; }
+  const hash = await hashPin(pin);
+  if (hash !== ADMIN_PIN_HASH) {
+    document.getElementById('pin-error').textContent = '❌ Mã PIN không đúng';
+    document.getElementById('pin-input').value = '';
+    return;
+  }
   localStorage.setItem('ct34_user_email', email);
   verifyAndEnter(email);
 }
