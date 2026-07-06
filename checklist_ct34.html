@@ -763,13 +763,23 @@ function aC(v,nm){
 function tC(v){const n=parseFloat(v);if(isNaN(n))return '';return n>80?'CD':n>=75?'CW':'';}
 
 function dI(i,f,v){
- // Chuyển yyyy-MM-dd -> DD/MM/YYYY để hiển thị đúng định dạng Việt Nam
  let disp=v||'';
  if(disp && /^\d{4}-\d{2}-\d{2}$/.test(disp)){
   const p=disp.split('-');
   disp=p[2]+'/'+p[1]+'/'+p[0];
  }
- return `<input class="ci" data-i="${i}" data-f="${f}" value="${disp}" type="text" placeholder="dd/mm/yyyy" style="width:88px" onblur="normDate(this)">`;
+ const uid=`d_${i}_${f}`;
+ return `<span style="display:inline-flex;align-items:center;gap:2px">
+  <input class="ci" id="${uid}" data-i="${i}" data-f="${f}" value="${disp}" type="text" placeholder="dd/mm/yyyy" style="width:78px" onchange="normDate(this)" onblur="normDate(this)">
+  <input type="date" style="width:0;height:0;opacity:0;position:absolute;pointer-events:none" id="${uid}_h" onchange="
+   const p=this.value.split('-');
+   const txt=document.getElementById('${uid}');
+   txt.value=p[2]+'/'+p[1]+'/'+p[0];
+   txt.dataset.isoVal=this.value;
+   txt.dispatchEvent(new Event('change'));
+  ">
+  <span onclick="document.getElementById('${uid}_h').showPicker()" style="cursor:pointer;font-size:14px;user-select:none" title="Chọn ngày">📅</span>
+ </span>`;
 }
 function tI(i,f,v){return `<input class="ci" data-i="${i}" data-f="${f}" value="${v||''}" type="time" style="width:63px">`;}
 
