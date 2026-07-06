@@ -715,10 +715,11 @@ function mergeServerData(sn,rows){
    let val=row[col-1]; // col 1-based -> 0-based
    if(val===null||val===undefined||val==='')return;
    val=String(val);
-   // Format ngày: "2026-07-01" hoặc "7/1/2026" -> "yyyy-MM-dd"
+   // Format ngày: server trả về "DD/MM/YYYY" (locale Vietnam) -> "yyyy-MM-dd" cho input type=date
    if(field==='ngay'){
     const m=val.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if(m)val=`${m[3]}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;
+    // m[1]=DD, m[2]=MM, m[3]=YYYY
+    if(m)val=`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
     else if(!/^\d{4}-\d{2}-\d{2}$/.test(val))return;
    }
    // Format giờ: "09:10" hoặc "9:10" -> "09:10"
