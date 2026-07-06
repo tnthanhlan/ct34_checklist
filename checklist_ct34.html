@@ -762,8 +762,39 @@ function aC(v,nm){
 }
 function tC(v){const n=parseFloat(v);if(isNaN(n))return '';return n>80?'CD':n>=75?'CW':'';}
 
-function dI(i,f,v){return `<input class="ci" data-i="${i}" data-f="${f}" value="${v||''}" type="date" style="width:88px">`;}
+function dI(i,f,v){
+ // Chuyển yyyy-MM-dd -> DD/MM/YYYY để hiển thị đúng định dạng Việt Nam
+ let disp=v||'';
+ if(disp && /^\d{4}-\d{2}-\d{2}$/.test(disp)){
+  const p=disp.split('-');
+  disp=p[2]+'/'+p[1]+'/'+p[0];
+ }
+ return `<input class="ci" data-i="${i}" data-f="${f}" value="${disp}" type="text" placeholder="dd/mm/yyyy" style="width:88px" onblur="normDate(this)">`;
+}
 function tI(i,f,v){return `<input class="ci" data-i="${i}" data-f="${f}" value="${v||''}" type="time" style="width:63px">`;}
+
+// Chuẩn hóa ngày nhập từ DD/MM/YYYY -> yyyy-MM-dd để lưu vào DIRTY
+function normDate(el){
+ const raw = el.value.trim();
+ if(!raw) return;
+ // Chấp nhận: DD/MM/YYYY hoặc D/M/YYYY hoặc DD/MM/YY
+ const m = raw.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
+ if(m){
+  const d=m[1].padStart(2,'0'), mo=m[2].padStart(2,'0');
+  let y=m[3]; if(y.length===2) y='20'+y;
+  const iso = `${y}-${mo}-${d}`;
+  // Kiểm tra ngày hợp lệ
+  const dt = new Date(iso);
+  if(!isNaN(dt)){
+   el.value = `${d}/${mo}/${y}`; // hiển thị DD/MM/YYYY
+   // Trigger onChg với giá trị ISO để lưu
+   const evt = new Event('change');
+   // Tạm thời gán value ISO để onChg lưu đúng format
+   el.dataset.isoVal = iso;
+   el.dispatchEvent(evt);
+  }
+ }
+}
 function nI(i,f,v,w){return `<input class="ci" data-i="${i}" data-f="${f}" value="${v||''}" type="number" step="0.01" style="width:${w||52}px">`;}
 function xI(i,f,v,w){return `<input class="ci" data-i="${i}" data-f="${f}" value="${v||''}" type="text" style="width:${w||75}px">`;}
 function sN(i,f,v){const c=(v||'')==='NOK'?'NK':'';return `<select class="ns ${c}" data-i="${i}" data-f="${f}"><option value="">–</option><option ${(v||'')==='OK'?'selected':''}>OK</option><option ${(v||'')==='NOK'?'selected':''}>NOK</option></select>`;}
@@ -788,7 +819,10 @@ function tkSingle(i,f,v,colorClass,pairField){
 }
 
 function onChg(e){
- const i=parseInt(e.target.dataset.i),f=e.target.dataset.f,v=e.target.value;
+ const i=parseInt(e.target.dataset.i),f=e.target.dataset.f;
+ // Nếu là input date text, dùng isoVal (yyyy-MM-dd) để lưu thay vì display value
+ const v = e.target.dataset.isoVal || e.target.value;
+ if(e.target.dataset.isoVal) delete e.target.dataset.isoVal;
 
  // Lưu dirty state
  if(!DIRTY[CUR])DIRTY[CUR]={};
