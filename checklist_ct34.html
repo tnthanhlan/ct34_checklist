@@ -1336,7 +1336,12 @@ function appAll(){
   DIRTY[CUR][i].ngay=date;DIRTY[CUR][i].gio=time;DIRTY[CUR][i].nguoi=nguoi;
  });
  localStorage.setItem('ct34v4',JSON.stringify(DIRTY));
- document.querySelectorAll('[data-f="ngay"]').forEach(el=>el.value=date);
+ // Hiển thị ngày dạng DD/MM/YYYY trong các ô text
+ const dateDisp = date ? (()=>{ const p=date.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; })() : '';
+ document.querySelectorAll('[data-f="ngay"]').forEach(el=>{
+  el.value=dateDisp;
+  if(date) el.dataset.isoVal=date;
+ });
  document.querySelectorAll('[data-f="gio"]').forEach(el=>el.value=time);
  document.querySelectorAll('[data-f="nguoi"]').forEach(el=>el.value=nguoi);
 }
