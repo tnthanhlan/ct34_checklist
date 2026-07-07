@@ -157,7 +157,14 @@ tbody td{padding:3px 4px;border-right:1px solid var(--bd);vertical-align:middle;
      </div>
     </div>
     <div id="ss">
-     <label>Ngày KT:</label><input type="date" id="id">
+     <label>Ngày KT:</label>
+     <input type="text" id="id" placeholder="dd/mm/yyyy" style="width:90px;padding:3px 6px;border:1px solid var(--bd);border-radius:5px;font-size:12px;background:var(--wh)" onblur="normHeaderDate(this)">
+     <span onclick="document.getElementById('id_h').showPicker()" style="cursor:pointer;font-size:13px;margin-left:-4px" title="Chọn ngày">📅</span>
+     <input type="date" id="id_h" style="width:0;height:0;opacity:0;position:absolute;pointer-events:none" onchange="
+      const p=this.value.split('-');
+      document.getElementById('id').value=p[2]+'/'+p[1]+'/'+p[0];
+      document.getElementById('id').dataset.iso=this.value;
+     ">
      <label>Giờ:</label><input type="time" id="it">
      <label>Người KT:</label><input type="text" id="in" placeholder="Họ tên..." style="width:120px">
      <button class="btn sm" onclick="appAll()">Áp dụng tất cả ↓</button>
@@ -280,7 +287,9 @@ function init() {
   setInterval(()=>{document.getElementById('clk').textContent=new Date().toLocaleString('vi-VN')},1000);
   document.getElementById('clk').textContent=new Date().toLocaleString('vi-VN');
   const t=new Date();
-  document.getElementById('id').value=t.toISOString().slice(0,10);
+  const _t=new Date();
+  document.getElementById('id').value=_t.getDate().toString().padStart(2,'0')+'/'+((_t.getMonth()+1).toString().padStart(2,'0'))+'/'+_t.getFullYear();
+  document.getElementById('id').dataset.iso=_t.toISOString().slice(0,10);
   document.getElementById('it').value=t.toTimeString().slice(0,5);
 
   // Kiểm tra đã đăng nhập chưa (Google OAuth)
@@ -598,7 +607,9 @@ function openSheet(sn){
  CD=info?info.devices:[];
  document.getElementById('shm').textContent=(CD.length||'?')+' thiết bị';
  const d=new Date();
- document.getElementById('id').value=d.toISOString().slice(0,10);
+ const _d=new Date();
+ document.getElementById('id').value=_d.getDate().toString().padStart(2,'0')+'/'+((_d.getMonth()+1).toString().padStart(2,'0'))+'/'+_d.getFullYear();
+ document.getElementById('id').dataset.iso=_d.toISOString().slice(0,10);
  document.getElementById('it').value=d.toTimeString().slice(0,5);
  if(USER)document.getElementById('in').value=USER.email.split('@')[0];
 
@@ -782,6 +793,18 @@ function dI(i,f,v){
  </span>`;
 }
 function tI(i,f,v){return `<input class="ci" data-i="${i}" data-f="${f}" value="${v||''}" type="time" style="width:63px">`;}
+
+function normHeaderDate(el){
+ const raw=el.value.trim();
+ if(!raw)return;
+ const m=raw.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
+ if(m){
+  const d=m[1].padStart(2,'0'),mo=m[2].padStart(2,'0');
+  let y=m[3];if(y.length===2)y='20'+y;
+  el.value=d+'/'+mo+'/'+y;
+  el.dataset.iso=y+'-'+mo+'-'+d;
+ }
+}
 
 // Chuẩn hóa ngày nhập từ DD/MM/YYYY -> yyyy-MM-dd để lưu vào DIRTY
 function normDate(el){
@@ -1298,7 +1321,14 @@ function setStats(ok,wa,da){
 }
 
 function appAll(){
- const date=document.getElementById('id').value,time=document.getElementById('it').value,nguoi=document.getElementById('in').value;
+ const idEl=document.getElementById('id');
+ // Lấy ISO date từ dataset nếu có, nếu không parse từ text DD/MM/YYYY
+ let date=idEl.dataset.iso||'';
+ if(!date && idEl.value){
+  const m=idEl.value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(m) date=m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+ }
+ const time=document.getElementById('it').value,nguoi=document.getElementById('in').value;
  if(!CUR)return;
  if(!DIRTY[CUR])DIRTY[CUR]={};
  CD.forEach((_,i)=>{
