@@ -808,23 +808,21 @@ function normHeaderDate(el){
 
 // Chuẩn hóa ngày nhập từ DD/MM/YYYY -> yyyy-MM-dd để lưu vào DIRTY
 function normDate(el){
+ if(el.dataset.normalizing) return;
  const raw = el.value.trim();
  if(!raw) return;
- // Chấp nhận: DD/MM/YYYY hoặc D/M/YYYY hoặc DD/MM/YY
- const m = raw.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
+ const m = raw.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
  if(m){
   const d=m[1].padStart(2,'0'), mo=m[2].padStart(2,'0');
   let y=m[3]; if(y.length===2) y='20'+y;
-  const iso = `${y}-${mo}-${d}`;
-  // Kiểm tra ngày hợp lệ
+  const iso = y+'-'+mo+'-'+d;
   const dt = new Date(iso);
   if(!isNaN(dt)){
-   el.value = `${d}/${mo}/${y}`; // hiển thị DD/MM/YYYY
-   // Trigger onChg với giá trị ISO để lưu
-   const evt = new Event('change');
-   // Tạm thời gán value ISO để onChg lưu đúng format
+   el.dataset.normalizing='1';
+   el.value = d+'/'+mo+'/'+y;
    el.dataset.isoVal = iso;
-   el.dispatchEvent(evt);
+   el.dispatchEvent(new Event('change'));
+   delete el.dataset.normalizing;
   }
  }
 }
