@@ -151,6 +151,7 @@ tbody td{padding:3px 4px;border-right:1px solid var(--bd);vertical-align:middle;
     <div id="ch">
      <div><h2 id="sht">–</h2><div class="me" id="shm"></div></div>
      <div style="margin-left:auto;display:flex;gap:6px">
+     <button class="btn" onclick="showMonthView()">📅 Xem theo tháng</button>
       <button class="btn" onclick="showHistory()">🕐 Lịch sử</button>
       <button class="btn" onclick="clrSheet()">🗑 Xóa phiên</button>
       <button class="btn pri" onclick="savSheet()">✅ Lưu phiên</button>
@@ -211,7 +212,27 @@ tbody td{padding:3px 4px;border-right:1px solid var(--bd);vertical-align:middle;
   </div>
  </div>
 </div>
-
+<!-- MODAL XEM THEO THÁNG -->
+<div id="month-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:5000;align-items:center;justify-content:center">
+ <div style="background:white;border-radius:10px;width:95%;max-width:1200px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.3)">
+  <div style="padding:14px 18px;background:var(--hd);color:white;display:flex;align-items:center;gap:10px">
+   <h3 style="font-size:15px;font-weight:600">📅 Xem dữ liệu theo tháng (chỉ xem)</h3>
+   <span id="month-sheet-name" style="font-size:12px;opacity:.8"></span>
+   <button onclick="closeMonthView()" style="margin-left:auto;background:none;border:none;color:white;font-size:20px;cursor:pointer;line-height:1">✕</button>
+  </div>
+  <div style="padding:10px 18px;background:#f8fafc;border-bottom:1px solid var(--bd);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+   <label style="font-size:12px;color:var(--mu)">Tháng:</label>
+   <select id="month-sel" style="padding:4px 8px;border:1px solid var(--bd);border-radius:6px;font-size:12px"></select>
+   <label style="font-size:12px;color:var(--mu)">Năm:</label>
+   <select id="year-sel" style="padding:4px 8px;border:1px solid var(--bd);border-radius:6px;font-size:12px"></select>
+   <button class="btn sm" onclick="loadMonthView()">🔄 Tải dữ liệu</button>
+   <span id="month-loading" style="font-size:12px;color:var(--mu)"></span>
+  </div>
+  <div style="flex:1;overflow:auto;padding:0">
+   <table id="month-table" style="width:100%;border-collapse:collapse;font-size:11px"></table>
+  </div>
+ </div>
+</div>
 <script>
 
 // =============================================
@@ -1443,7 +1464,99 @@ function clearAllLocal(){
  renderTable();
  showToast('✅ Đã xóa cache local');
 }
+// =============================================
+// XEM THEO THÁNG - chỉ đọc, dựng lại từ _LOG
+// =============================================
+function showMonthView(){
+ if(!CUR){ showToast('⚠ Hãy chọn 1 sheet trước', 'warn'); return; }
+ if(OFFLINE_MODE){ showToast('⚠ Chế độ offline không có dữ liệu server', 'warn'); return; }
+ document.getElementById('month-sheet-name').textContent = '— ' + CUR;
 
+ const msel=document.getElementById('month-sel');
+ if(!msel.options.length){
+  for(let m=1;m<=12;m++){const o=document.createElement('option');o.value=m;o.textContent='Tháng '+m;msel.appendChild(o);}
+ }
+ const ysel=document.getElementById('year-sel');
+ if(!ysel.options.length){
+  const curY=new Date().getFullYear();
+  for(let y=curY;y>=curY-2;y--){const o=document.createElement('option');o.value=y;o.textContent=y;ysel.appendChild(o);}
+ }
+ const now=new Date();
+ msel.value=now.getMonth()+1;
+ ysel.value=now.getFullYear();
+
+ document.getElementById('month-modal').style.display = 'flex';
+ loadMonthView();
+}
+
+function closeMonthView(){
+ document.getElementById('month-modal').style.display = 'none';
+}
+
+async function loadMonthView(){
+ if(!CUR) return;
+ const loadingEl = document.getElementById('month-loading');
+ const table = document.getElementById('month-table');
+ const month = document.getElementById('month-sel').value;
+ const year = document.getElementById('year-sel').value;
+
+ loadingEl.textContent = 'Đang tải...';
+ table.innerHTML = '<tr><td style="padding:20px;text-align:center;color:var(--mu)">Đang tải...</td></tr>';
+
+ try {
+  const result = await callAPI('getMonthData', { sheet: CUR, month, year });
+  if (result.error) {
+   table.innerHTML = `<tr><td style="padding:20px;text-align:center;color:var(--rt)">Lỗi: ${result.error}</td></tr>`;
+   loadingEl.textContent = '';
+   return;
+  }
+  renderMonthTable(result.rows || {});
+  loadingEl.textContent = `Tháng ${month}/${year}`;
+ } catch(e) {
+  table.innerHTML = '<tr><td style="padding:20px;text-align:center;color:var(--rt)">Không kết nối được server</td></tr>';
+  loadingEl.textContent = '';
+ }
+}
+
+function renderMonthTable(rowsData){
+ const info = DB[CUR];
+ const table = document.getElementById('month-table');
+ if(!info || !info.devices || !info.devices.length){
+  table.innerHTML = '<tr><td style="padding:20px;text-align:center;color:var(--mu)">Sheet này không có dữ liệu thiết bị</td></tr>';
+  return;
+ }
+ const colMap = getColMap(CUR);
+ const fieldKeys = Object.keys(colMap);
+
+ let thead = '<thead><tr style="position:sticky;top:0;background:#1e3a5f;color:white">' +
+  '<th style="padding:6px 8px;text-align:center">STT</th>' +
+  '<th style="padding:6px 8px;text-align:left">Đối tượng</th>' +
+  '<th style="padding:6px 8px;text-align:left">Phần tử</th>';
+ fieldKeys.forEach(f => thead += `<th style="padding:6px 8px;text-align:center;white-space:nowrap">${f}</th>`);
+ thead += '</tr></thead>';
+
+ let hasAnyData = false;
+ let tbody = '<tbody>';
+ info.devices.forEach(dev => {
+  const rowVals = rowsData[dev._row] || null;
+  if (rowVals) hasAnyData = true;
+  tbody += `<tr style="border-bottom:1px solid var(--bd)">
+   <td style="padding:5px 8px;text-align:center;font-size:10px">${dev.stt||''}</td>
+   <td style="padding:5px 8px;font-weight:600;font-size:10px">${dev.doi_tuong||dev.tram||''}</td>
+   <td style="padding:5px 8px;font-size:10px;color:var(--mu)">${dev.phan_tu||''}</td>`;
+  fieldKeys.forEach(f => {
+   const v = rowVals && rowVals[f] !== undefined ? rowVals[f] : '';
+   tbody += `<td style="padding:5px 8px;text-align:center;font-size:10px">${v}</td>`;
+  });
+  tbody += '</tr>';
+ });
+ tbody += '</tbody>';
+
+ table.innerHTML = thead + tbody;
+ if(!hasAnyData){
+  table.innerHTML += '<tr><td colspan="99" style="padding:16px;text-align:center;color:var(--mu)">Không có dữ liệu nhập trong tháng này cho sheet đang chọn</td></tr>';
+ }
+}
 init();
 
 </script>
