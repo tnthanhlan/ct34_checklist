@@ -495,7 +495,7 @@ function jsonpRequest(action, params = {}) {
       reject(new Error('Timeout: không kết nối được server'));
     }, 15000);
 
-    const qs = new URLSearchParams({ action, callback: '__ct34cb', ...params });
+    const qs = new URLSearchParams({ action, callback: '__ct34cb', _cb: Date.now(), ...params });
     const script = document.createElement('script');
     script.src = API_URL + '?' + qs.toString();
     script.onload = () => {
