@@ -272,8 +272,16 @@ function buildReminder() {
  const ngay = now.getDate();
  const thang = now.getMonth() + 1; // 1-12
 
- // Tuần thứ mấy trong tháng (T1/T2/T3/T4)
- const tuanTrongThang = Math.ceil(ngay / 7); // 1,2,3,4
+ // Tuần thứ mấy trong tháng, tính theo tuần Thứ2->CN thật sự (không phải chia đều 7 ngày).
+ // Tuần đầu tiên của tháng là tuần cụt: từ ngày 1 đến Chủ Nhật gần nhất.
+ const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+ let firstDow = firstDay.getDay(); // 0=CN,1=T2,...6=T7
+ firstDow = (firstDow + 6) % 7; // Chuyển về: T2=0, T3=1,...CN=6
+ const daysInFirstWeek = 7 - firstDow; // số ngày của tuần cụt đầu tháng
+ const tuanTrongThang = ngay <= daysInFirstWeek
+   ? 1
+   : 1 + Math.ceil((ngay - daysInFirstWeek) / 7);
+
  const isThangLe = thang % 2 !== 0;
 
  const thuTen = ['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'][thu];
