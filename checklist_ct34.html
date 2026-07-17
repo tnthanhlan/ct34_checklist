@@ -258,7 +258,7 @@ const SCH={
  'THỨ 3':{le:['17 TBA','4 DC Cấp liệu','4 DC Cấp liệu',''],chan:['17 TBA','','4 DC Cấp liệu','']},
  'THỨ 4':{le:['9 Tuyến Máng THL1','10 Tuyến Máng TRL1','11 Tuyến Máng HAL1',''],chan:['5 Tuyến Máng 12','6 Tuyến Máng 34','7 Tuyến Máng 68','']},
  'THỨ 5':{le:['15 Tuyến Máng XRT','','','23 KT HT Đếm'],chan:['16 Lọc bụi','16 Lọc bụi','8 Tuyến Máng 910','']},
- 'THỨ 6':{le:['','','',''],chan:['','13 Tuyến Máng HAL2','12 Tuyến Máng THL2','']},
+ 'THỨ 6':{le:['','13 Tuyến Máng HAL2','12 Tuyến Máng THL2',''],chan:['','','','']},
  'THỨ 7':{le:['1 Nén khí','18 CDCCDCL 6kV','1 Nén khí','1 Nén khí'],chan:['1 Nén khí','18 CDCCDCL 6kV','1 Nén khí','1 Nén khí']},
  'CN':{le:['20 Bơm Nước','20 Bơm Nước','20 Bơm Nước','20 Bơm Nước'],chan:['20 Bơm Nước','20 Bơm Nước','20 Bơm Nước','20 Bơm Nước']},
 };
@@ -888,6 +888,16 @@ function onChg(e){
  // Nếu là input date text, dùng isoVal (yyyy-MM-dd) để lưu thay vì display value
  const v = e.target.dataset.isoVal || e.target.value;
  if(e.target.dataset.isoVal) delete e.target.dataset.isoVal;
+
+ // Chặn dán/nhập nhầm giá trị ngày tháng vào các ô số (dòng điện, nhiệt độ...)
+ const NUMERIC_FIELDS_CLIENT = ['I_U_u','I_U_l','I_V_u','I_V_l','I_W_u','I_W_l',
+   'hn_u_t0','hn_v_t0','hn_w_t0','t_dc','t_s2','t_s3',
+   'obi_khop','obi_dend','obi_ndend'];
+ if (NUMERIC_FIELDS_CLIENT.includes(f) && typeof v === 'string' && /^\d{4}-\d{1,2}-\d{1,2}$/.test(v)) {
+   showToast('⚠ Giá trị "' + v + '" không hợp lệ cho ô số - đã hủy, vui lòng nhập lại', 'warn');
+   e.target.value = '';
+   return;
+ }
 
  // Lưu dirty state
  if(!DIRTY[CUR])DIRTY[CUR]={};
