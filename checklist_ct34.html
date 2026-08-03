@@ -270,9 +270,8 @@ function buildReminder() {
  const now = new Date();
  const thu = now.getDay(); // 0=CN,1=T2,...6=T7
  const ngay = now.getDate();
- const thang = now.getMonth() + 1; // 1-12
 
-// Tuần thuộc về tháng nào: xác định theo tháng chứa Thứ Năm của tuần đó (Mon-Sun),
+ // Tuần thuộc về tháng nào: xác định theo tháng chứa Thứ Năm của tuần đó (Mon-Sun),
  // vì Thứ Năm luôn là ngày thứ 4/7 -> đảm bảo đa số ngày trong tuần rơi vào đúng tháng đó.
  // Đây là quy tắc chuẩn (tương tự ISO 8601), khớp cả trường hợp tháng bắt đầu giữa tuần
  // lẫn trường hợp tháng bắt đầu ngay cuối tuần (thứ 7/CN).
@@ -288,8 +287,6 @@ function buildReminder() {
  const thuTen = ['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'][thu];
  const thuKey = ['CN','THỨ 2','THỨ 3','THỨ 4','THỨ 5','THỨ 6','THỨ 7'][thu];
 
- // SCH[thuKey].le = [T1,T2,T3,T4] cho tháng lẻ
- // SCH[thuKey].chan = [T1,T2,T3,T4] cho tháng chẵn
  const lichHom = SCH[thuKey];
  const remind = document.getElementById('remind-text');
  const bar = document.getElementById('remind-bar');
@@ -298,7 +295,6 @@ function buildReminder() {
  let viec = '';
  if (lichHom) {
   const ds = isThangLe ? lichHom.le : lichHom.chan;
-  // Lấy đúng cột tuần hiện tại (index 0=T1, 1=T2, 2=T3, 3=T4)
   const idx = Math.min(tuanTrongThang - 1, ds.length - 1);
   viec = ds[idx] || '';
  }
