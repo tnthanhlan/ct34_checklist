@@ -269,18 +269,16 @@ const SCH={
 function buildReminder() {
  const now = new Date();
  const thu = now.getDay(); // 0=CN,1=T2,...6=T7
- const ngay = now.getDate();
- const thang = now.getMonth() + 1; // 1-12
 
- // Tuần thứ mấy trong tháng, tính theo tuần Thứ2->CN thật sự (không phải chia đều 7 ngày).
- // Tuần đầu tiên của tháng là tuần cụt: từ ngày 1 đến Chủ Nhật gần nhất.
- const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
- let firstDow = firstDay.getDay(); // 0=CN,1=T2,...6=T7
- firstDow = (firstDow + 6) % 7; // Chuyển về: T2=0, T3=1,...CN=6
- const daysInFirstWeek = 7 - firstDow; // số ngày của tuần cụt đầu tháng
- const tuanTrongThang = ngay <= daysInFirstWeek
-   ? 1
-   : 1 + Math.ceil((ngay - daysInFirstWeek) / 7);
+ // Tuần thuộc về tháng nào: xác định theo tháng chứa Thứ Năm của tuần đó (Mon-Sun),
+ // vì Thứ Năm luôn là ngày thứ 4/7 -> đảm bảo đa số ngày trong tuần rơi vào đúng tháng đó.
+ // Đây là quy tắc chuẩn (tương tự ISO 8601), khớp cả trường hợp tháng bắt đầu giữa tuần
+ // lẫn trường hợp tháng bắt đầu ngay cuối tuần (thứ 7/CN).
+ const daysSinceMonday = (thu + 6) % 7; // T2=0,...,CN=6
+ const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysSinceMonday);
+ const thursday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 3);
+ const thang = thursday.getMonth() + 1;
+ const tuanTrongThang = Math.ceil(thursday.getDate() / 7);
 
  const isThangLe = thang % 2 !== 0;
 
