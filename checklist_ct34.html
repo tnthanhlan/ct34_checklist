@@ -36,25 +36,39 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .ld{background:var(--rw);border-color:var(--rb);color:var(--rt)}
 #sbh{padding:9px 11px;border-bottom:1px solid var(--bd);background:#f8fafc}
 #sbh h2{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--mu);margin-bottom:1px}
-#sv{overflow-y:auto;flex:1;padding:4px 0}
+/* (2026-10-12) Các THỨ trong tuần thu gọn thành 1 dòng 7 nút (T2..CN); bấm 1 nút -> popup xổ xuống danh sách sheet của ngày đó.
+   Nhờ vậy khung "Các yêu cầu cơ bản" bên dưới được nới ra chiếm hết phần còn lại của panel trái. */
+#sv{flex:0 0 auto;overflow:visible;position:relative;padding:8px 8px 7px;border-bottom:1px solid var(--bd);background:var(--wh);z-index:5}
+#dayrow{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.dtab{position:relative;padding:7px 0 6px;font-size:12px;font-weight:700;text-align:center;border:1px solid var(--bd);border-radius:6px;background:#f8fafc;color:var(--mu);cursor:pointer;user-select:none;line-height:1.2;transition:background .1s}
+.dtab:hover{background:#eef2f7}
+.dtab.today{border-color:var(--ac);color:var(--ac);box-shadow:inset 0 0 0 1px var(--ac)}
+.dtab.op{background:var(--hd);border-color:var(--hd);color:#fff;box-shadow:none}
+.dtab .dd{position:absolute;top:2px;right:2px;width:6px;height:6px;border-radius:50%}
+#daypop{display:none;position:absolute;left:6px;right:6px;top:calc(100% + 6px);z-index:40;background:var(--wh);border:1px solid var(--hd);border-radius:8px;box-shadow:0 10px 26px rgba(15,23,42,.32);overflow-y:auto;overscroll-behavior:contain;padding:3px 0 5px}
+#daypop.vs{display:block}
+#daypop::before{content:'';position:absolute;top:-6px;left:var(--cx,20px);width:10px;height:10px;margin-left:-5px;background:var(--wh);border-left:1px solid var(--hd);border-top:1px solid var(--hd);transform:rotate(45deg)}
+#daypop .pt{position:sticky;top:0;background:var(--wh);padding:5px 12px 4px;font-size:10px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--mu);z-index:1}
+#daypop .pt em{font-style:normal;font-weight:500;letter-spacing:0;text-transform:none;margin-left:5px}
+#daypop .si{padding:7px 10px;margin:1px 6px}
 /* KHUNG "CÁC YÊU CẦU CƠ BẢN" dưới danh sách sheet ở panel trái (2026-10-09) - thu/mở được, nhớ lựa chọn.
    (2026-10-10) Làm bằng <div> + flex thay cho <details>: display:flex trên <details> không ép được chiều cao của phần nội dung nên
    màn hình thấp thì nội dung bị cắt, không cuộn được tới mục "THIẾT BỊ TĨNH". Nay #req tự co (max 46% panel), phần nội dung .rq-b cuộn riêng. */
-#req{flex:0 1 auto;min-height:0;border-top:2px solid var(--hd);background:#f8fafc;max-height:46%;display:flex;flex-direction:column}
-#req>.rq-h{flex-shrink:0;cursor:pointer;padding:6px 11px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--hd);user-select:none;display:flex;justify-content:space-between;align-items:center;line-height:1.3}
+#req{flex:1 1 auto;min-height:0;border-top:2px solid var(--hd);background:#f8fafc;display:flex;flex-direction:column}
+#req>.rq-h{flex-shrink:0;cursor:pointer;padding:8px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--hd);user-select:none;display:flex;justify-content:space-between;align-items:center;line-height:1.3}
 #req>.rq-h::after{content:'▾';font-size:11px;margin-left:6px;flex-shrink:0}
 #req:not(.open)>.rq-h::after{content:'▸'}
-#req .rq-b{display:none;flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:2px 11px 14px;font-size:11px;line-height:1.4;color:var(--tx)}
+#req .rq-b{display:none;flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:2px 12px 14px;font-size:12.5px;line-height:1.5;color:var(--tx)}
+#req:not(.open){flex:0 0 auto}
 #req.open .rq-b{display:block;
  /* bóng mờ ở mép trên/dưới cho biết còn nội dung để cuộn */
  background:linear-gradient(#f8fafc 30%,rgba(248,250,252,0)) top/100% 16px no-repeat local,linear-gradient(rgba(248,250,252,0),#f8fafc 70%) bottom/100% 16px no-repeat local,
   radial-gradient(farthest-side at 50% 0,rgba(0,0,0,.22),rgba(0,0,0,0)) top/100% 7px no-repeat scroll,radial-gradient(farthest-side at 50% 100%,rgba(0,0,0,.22),rgba(0,0,0,0)) bottom/100% 7px no-repeat scroll}
 #req .rq-g{margin-top:7px}
-#req .rq-t{display:inline-block;font-size:9.5px;font-weight:700;padding:1px 7px;border-radius:9px;margin-bottom:2px;letter-spacing:.3px}
+#req .rq-t{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:9px;margin-bottom:2px;letter-spacing:.3px}
 #req .rq-run{background:#dcfce7;color:#166534}
 #req .rq-stop{background:#fee2e2;color:#991b1b}
 #req .rq-st{background:#dbeafe;color:#1e40af}
-#sv{min-height:90px}
 #req ol{margin:0;padding-left:16px}
 #req li{margin:1px 0}
 .dg{border-bottom:1px solid var(--bd)}
@@ -307,8 +321,7 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
   <h1>⚡ Checklist CT34</h1>
   <span class="sub">Hệ thống kiểm tra thiết bị – Xưởng Sửa Chữa</span>
   <div style="margin-left:auto;display:flex;gap:7px;align-items:center">
-   <button class="btn sm admin-only" onclick="clearAllLocal()" style="background:rgba(255,100,100,.2);color:#fca5a5;border-color:rgba(255,100,100,.4)">🗑 Xóa cache</button>
-   <span id="user-info" style="font-size:12px;opacity:.85;margin-right:8px"></span><span id="clk" style="font-size:11px;opacity:.8"></span>
+   <span id="user-info" style="font-size:12px;opacity:.85;margin-right:4px"></span><span id="app-ver" title="Phiên bản app đang chạy - đổi sang số mới nghĩa là đã nhận bản cập nhật" style="font-size:11px;opacity:.75;white-space:nowrap;margin-right:4px"></span>
    <button class="btn sm" onclick="expData()" style="background:rgba(255,255,255,.15);color:white;border-color:rgba(255,255,255,.3)">💾 Xuất dữ liệu</button>
   </div>
  </div>
@@ -324,7 +337,7 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
  <div id="wrap">
   <div id="sb">
    <div id="lp"><button class="btn" style="width:100%;font-weight:600" onclick="showLichTongThe()">📅 Lịch Tổng Thể</button></div>
-   <div id="sbh"><h2>Lịch kiểm tra</h2><p style="font-size:11px;color:var(--mu)">Chọn sheet để nhập dữ liệu</p><p id="app-ver" style="font-size:10px;color:var(--mu);margin-top:3px"></p></div>
+   <div id="sbh"><h2>Lịch kiểm tra</h2><p style="font-size:11px;color:var(--mu)">Chọn sheet để nhập dữ liệu</p></div>
    <div id="sv"></div>
    <div id="req">
     <div class="rq-h" id="req-h" role="button" tabindex="0" onclick="toggleReq()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleReq();}">Các yêu cầu cơ bản khi checklist thiết bị theo lịch</div>
@@ -350,7 +363,7 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
    <div id="ca">
     <div id="od-box"></div>
     <div id="ch">
-     <div><h2 id="sht">–</h2><div class="me" id="shm"></div></div>
+     <div><h2 id="sht">–</h2><div class="me"><span id="shm"></span><span style="margin:0 5px">·</span><span id="clk" title="Ngày giờ hiện tại (thời gian thực)" style="font-weight:600;color:var(--hd);white-space:nowrap"></span></div></div>
      <div style="margin-left:auto;display:flex;gap:6px">
      <button class="btn" onclick="showMonthView()">📅 Xem theo tháng</button>
       <button class="btn" onclick="showHistory()">🕐 Lịch sử</button>
@@ -358,19 +371,6 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
       <button id="btn-luu-phien" class="btn pri" onclick="savSheet()">✅ Lưu phiên</button>
       <button id="btn-huy-luu" class="btn" onclick="cancelSave()" style="display:none;color:var(--rt);border-color:var(--rb)">⏹ Huỷ lưu</button>
      </div>
-    </div>
-    <div id="ss">
-     <label>Ngày KT:</label>
-     <input type="text" id="id" placeholder="dd/mm/yyyy" style="width:90px;padding:3px 6px;border:1px solid var(--bd);border-radius:5px;font-size:12px;background:var(--wh)" onblur="normHeaderDate(this)">
-     <span onclick="document.getElementById('id_h').showPicker()" style="cursor:pointer;font-size:13px;margin-left:-4px" title="Chọn ngày">📅</span>
-     <input type="date" id="id_h" style="width:0;height:0;opacity:0;position:absolute;pointer-events:none" onchange="
-      const p=this.value.split('-');
-      document.getElementById('id').value=p[2]+'/'+p[1]+'/'+p[0];
-      document.getElementById('id').dataset.iso=this.value;
-     ">
-     <label>Giờ:</label><input type="text" id="it" placeholder="hh:mm" maxlength="5" style="width:52px" onblur="normTime(this)">
-     <label>Người KT:</label><input type="text" id="in" placeholder="Họ tên..." style="width:120px">
-     <button class="btn sm" onclick="appAll()">Áp dụng tất cả ↓</button>
     </div>
     <div id="ap"><b>⚠ Cảnh báo:</b><div class="al" id="al"></div></div>
     <div id="stb">
@@ -646,15 +646,15 @@ function buildReminder() {
  }
 }
 
+// Đồng hồ thời gian thực ở hàng tên sheet: "Thứ Bảy 10/10/2026 06:15:23"
+function tickClock(){
+  const el=document.getElementById('clk');if(!el)return;
+  const n=new Date(),p2=x=>String(x).padStart(2,'0');
+  el.textContent=['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'][n.getDay()]+' '+p2(n.getDate())+'/'+p2(n.getMonth()+1)+'/'+n.getFullYear()+' '+p2(n.getHours())+':'+p2(n.getMinutes())+':'+p2(n.getSeconds());
+}
 function init() {
   initSbState(); initReqBox(); buildLich(); buildSB(); buildReminder();
-  setInterval(()=>{document.getElementById('clk').textContent=new Date().toLocaleString('vi-VN')},1000);
-  document.getElementById('clk').textContent=new Date().toLocaleString('vi-VN');
-  const t=new Date();
-  const _t=new Date();
-  document.getElementById('id').value=_t.getDate().toString().padStart(2,'0')+'/'+((_t.getMonth()+1).toString().padStart(2,'0'))+'/'+_t.getFullYear();
-  document.getElementById('id').dataset.iso=_t.toISOString().slice(0,10);
-  document.getElementById('it').value=t.toTimeString().slice(0,5);
+  tickClock(); setInterval(tickClock,1000);
 
   // Kiểm tra đã đăng nhập chưa (Google OAuth)
   checkAuth();
@@ -809,9 +809,9 @@ function showUI() {
 // bên dưới (vd ngày-giờ) - trang đang mở sẽ tự phát hiện: nếu không có dữ liệu chưa lưu thì tự tải
 // lại, còn nếu đang có dữ liệu chưa lưu thì hiện thanh nhắc để họ lưu xong rồi bấm tải lại.
 // =============================================
-const APP_VERSION = '2026-10-12-2';
+const APP_VERSION = '2026-10-12-4';
 // Hiện số phiên bản ở đầu panel trái (☰ trên điện thoại) để biết điện thoại đang chạy bản nào.
-document.addEventListener('DOMContentLoaded',function(){var e=document.getElementById('app-ver');if(e)e.textContent='Phiên bản app: '+APP_VERSION;});
+document.addEventListener('DOMContentLoaded',function(){var e=document.getElementById('app-ver');if(e)e.textContent='v'+APP_VERSION;});
 // =============================================
 // TRẠNG THÁI "ĐÃ ĐỌC ĐƯỢC DỮ LIỆU THẬT TỪ GOOGLE SHEET CHƯA" cho từng sheet.
 // DB_LOCAL (danh sách thiết bị cứng trong file HTML) chỉ là bản tạm dựng sẵn, có thể CŨ/SAI so với
@@ -1261,26 +1261,73 @@ function closeLichTongThe(){
  document.getElementById('ltt-modal').style.display='none';
 }
 
-function buildSB(){
- const sv=document.getElementById('sv');sv.innerHTML='';const seen={};
- Object.entries(SCH).forEach(([day,{le,chan}])=>{
-  const dg=document.createElement('div');dg.className='dg';
-  const dl=document.createElement('div');dl.className='dl';
-  dl.innerHTML=`<span>${day}</span><span class="ar">▶</span>`;
-  dl.onclick=()=>{dl.classList.toggle('op');ds.classList.toggle('vs')};
-  const ds=document.createElement('div');ds.className='ds';
-  // Gộp tất cả sheet trong ngày (kể cả ô chứa nhiều sheet) thành 1 danh sách phẳng, không trùng lặp
-  const allNames=[...le,...chan].flatMap(schItems);
-  [...new Set(allNames)].forEach(sn=>{
-   if(seen[sn+day])return;seen[sn+day]=1;
-   const si=document.createElement('div');si.className='si';si.dataset.s=sn;
-   const dot=document.createElement('div');dot.className='dot no';dot.id='dt_'+sn.replace(/\W/g,'_');
-   si.appendChild(dot);si.appendChild(document.createTextNode(' '+sn));
-   si.onclick=()=>openSheet(sn);ds.appendChild(si);
-  });
-  dg.appendChild(dl);dg.appendChild(ds);sv.appendChild(dg);
- });
+function dayLabel(day){return day==='CN'?'CN':day.replace(/^THỨ\s*/,'T');}
+// Trạng thái xấu nhất (da > wa > ok > no) của 1 danh sách sheet - dùng tô chấm nhỏ trên nút ngày
+function worstCode(names){
+ let w='no';
+ names.forEach(nm=>{const st=AST[nm];if(st==='da')w='da';else if(st==='wa'&&w!=='da')w='wa';else if(st==='ok'&&w==='no')w='ok';});
+ return w;
 }
+let SB_OPEN_DAY=null;
+function buildSB(){
+ const sv=document.getElementById('sv');sv.innerHTML='';
+ const row=document.createElement('div');row.id='dayrow';
+ const pop=document.createElement('div');pop.id='daypop';
+ const todayKey=['CN','THỨ 2','THỨ 3','THỨ 4','THỨ 5','THỨ 6','THỨ 7'][new Date().getDay()];
+ Object.entries(SCH).forEach(([day,{le,chan}])=>{
+  // Gộp tất cả sheet trong ngày (kể cả ô chứa nhiều sheet) thành 1 danh sách phẳng, không trùng lặp
+  const names=[...new Set([...le,...chan].flatMap(schItems))];
+  const tab=document.createElement('div');tab.className='dtab'+(day===todayKey?' today':'');
+  tab.dataset.day=day;tab.setAttribute('role','button');tab.tabIndex=0;
+  tab.title=day+(day===todayKey?' (hôm nay)':'')+' - '+names.length+' sheet';
+  tab.innerHTML=`${dayLabel(day)}<i class="dd dot no"></i>`;
+  tab.onclick=ev=>{ev.stopPropagation();openDayPop(SB_OPEN_DAY===day?null:day);};
+  tab.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();tab.onclick(ev);}};
+  row.appendChild(tab);
+ });
+ sv.appendChild(row);sv.appendChild(pop);
+ SB_OPEN_DAY=null;
+ refreshDayTabs();
+}
+// Dựng nội dung popup cho 1 ngày rồi hiện ngay dưới dòng nút (null = đóng)
+function openDayPop(day){
+ const pop=document.getElementById('daypop');if(!pop)return;
+ document.querySelectorAll('#dayrow .dtab').forEach(t=>t.classList.toggle('op',t.dataset.day===day));
+ SB_OPEN_DAY=day;
+ if(!day){pop.classList.remove('vs');return;}
+ const {le,chan}=SCH[day];
+ const names=[...new Set([...le,...chan].flatMap(schItems))];
+ const todayKey=['CN','THỨ 2','THỨ 3','THỨ 4','THỨ 5','THỨ 6','THỨ 7'][new Date().getDay()];
+ pop.innerHTML='';
+ const h=document.createElement('div');h.className='pt';
+ h.innerHTML=`${day}<em>${day===todayKey?'· hôm nay · ':''}${names.length} sheet</em>`;pop.appendChild(h);
+ names.forEach(sn=>{
+  const si=document.createElement('div');si.className='si'+(CUR===sn?' ac':'');si.dataset.s=sn;
+  const dot=document.createElement('div');dot.className='dot '+(AST[sn]||'no');dot.dataset.dot=sn;
+  si.appendChild(dot);si.appendChild(document.createTextNode(' '+sn));
+  si.onclick=()=>{openDayPop(null);openSheet(sn);};
+  pop.appendChild(si);
+ });
+ if(!names.length){const e=document.createElement('div');e.className='si';e.style.cssText='color:var(--mu);cursor:default';e.textContent='Không có sheet nào';pop.appendChild(e);}
+ // mũi tên chỉ đúng nút đang mở; giới hạn chiều cao để không tràn khỏi panel trái
+ const tab=document.querySelector('#dayrow .dtab[data-day="'+day+'"]');
+ const sv=document.getElementById('sv'),sb=document.getElementById('sb');
+ if(tab&&sv){const tr=tab.getBoundingClientRect(),sr=sv.getBoundingClientRect();pop.style.setProperty('--cx',(tr.left+tr.width/2-sr.left-6)+'px');}
+ pop.classList.add('vs');
+ if(sv&&sb){const room=sb.getBoundingClientRect().bottom-pop.getBoundingClientRect().top-10;pop.style.maxHeight=Math.max(120,room)+'px';}
+}
+// Cập nhật chấm trạng thái trên nút ngày + trong popup (gọi mỗi khi trạng thái sheet đổi)
+function refreshDayTabs(){
+ document.querySelectorAll('#dayrow .dtab').forEach(t=>{
+  const d=SCH[t.dataset.day];if(!d)return;
+  const names=[...new Set([...d.le,...d.chan].flatMap(schItems))];
+  const dd=t.querySelector('.dd');if(dd)dd.className='dd dot '+worstCode(names);
+ });
+ document.querySelectorAll('#daypop .dot[data-dot]').forEach(el=>{el.className='dot '+(AST[el.dataset.dot]||'no');});
+}
+// Bấm ra ngoài popup / phím Esc -> đóng
+document.addEventListener('click',ev=>{if(SB_OPEN_DAY&&!ev.target.closest('#sv'))openDayPop(null);});
+document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&SB_OPEN_DAY)openDayPop(null);});
 
 // =============================================
 // MỞ SHEET
@@ -1295,11 +1342,11 @@ function setSbOff(off,remember){
  app.classList.toggle('sb-off',!!off);
  if(remember){try{localStorage.setItem(SB_KEY,off?'1':'0');}catch(e){}}
 }
-// Khung "Các yêu cầu cơ bản": máy tính mặc định MỞ, điện thoại mặc định THU (để nhường chỗ danh sách sheet); nhớ lựa chọn do người dùng bấm.
+// Khung "Các yêu cầu cơ bản": mặc định MỞ (đã có nhiều chỗ vì các Thứ chỉ còn 1 dòng); nhớ lựa chọn do người dùng bấm.
 function initReqBox(){
  const d=document.getElementById('req');if(!d)return;
  let v=null;try{v=localStorage.getItem('ct34_req_open');}catch(e){}
- d.classList.toggle('open',(v===null)?isDesktopLayout():(v==='1'));
+ d.classList.toggle('open',(v===null)?true:(v==='1'));
 }
 function toggleReq(){
  const d=document.getElementById('req');if(!d)return;
@@ -1327,6 +1374,7 @@ function openSheet(sn){
  CUR=sn;
  try{if(isDesktopLayout()&&localStorage.getItem(SB_KEY)===null)setSbOff(true,false);}catch(e){}
  document.querySelectorAll('.si').forEach(el=>el.classList.toggle('ac',el.dataset.s===sn));
+ if(typeof SB_OPEN_DAY!=='undefined'&&SB_OPEN_DAY)openDayPop(null);
  document.getElementById('wc').style.display='none';
  document.getElementById('ca').style.display='flex';
  document.getElementById('sht').textContent=sn;
@@ -1335,12 +1383,7 @@ function openSheet(sn){
  const info=DB[sn];
  CD=info?info.devices:[];
  document.getElementById('shm').textContent=(CD.length||'?')+' thiết bị';
- const d=new Date();
- const _d=new Date();
- document.getElementById('id').value=_d.getDate().toString().padStart(2,'0')+'/'+((_d.getMonth()+1).toString().padStart(2,'0'))+'/'+_d.getFullYear();
- document.getElementById('id').dataset.iso=_d.toISOString().slice(0,10);
- document.getElementById('it').value=d.toTimeString().slice(0,5);
- if(USER)document.getElementById('in').value=USER.email.split('@')[0];
+  STAMPED[sn]={}; // mở/làm mới sheet -> các hàng được tự điền Ngày/Giờ/Người lại từ đầu
 
  // Reset DIRTY cho sheet này mỗi lần mở để luôn load mới từ server - NHƯNG chỉ xoá thẳng tay khi
  // chắc chắn không có gì bị mất (sheet chưa từng sửa, hoặc lần "Lưu phiên" gần nhất đã thành công
@@ -1963,6 +2006,11 @@ function onChg(e){
    return;
  }
 
+ // Nhập/tick số liệu vào hàng -> tự điền Ngày/Giờ/Người KT nếu hàng chưa có (xem autoStampRow)
+ autoStampRow(i,f,v);
+ // Người dùng tự gõ tên ở cột Người KT -> nhớ để các hàng sau tự điền cùng tên
+ if(f==='nguoi'&&String(v||'').trim()){try{localStorage.setItem(LAST_NGUOI_KEY,String(v).trim());}catch(e){}}
+
  // Lưu dirty state (cache hiển thị)
  if(!DIRTY[CUR])DIRTY[CUR]={};
  if(!DIRTY[CUR][i])DIRTY[CUR][i]={};
@@ -2546,8 +2594,7 @@ function updSheetSt(){
  }
  if(YC_TYPES.includes(tp))sa=YC_ST[CUR]||'ok';
  AST[CUR]=sa;
- const dot=document.getElementById('dt_'+CUR.replace(/\W/g,'_'));
- if(dot)dot.className='dot '+sa;
+ refreshDayTabs();
  buildLich();
 }
 
@@ -2558,42 +2605,61 @@ function setStats(ok,wa,da){
  document.getElementById('s3').textContent='Tổng: '+CD.length+' thiết bị';
 }
 
-function appAll(){
- const idEl=document.getElementById('id');
- // Lấy ISO date từ dataset nếu có, nếu không parse từ text DD/MM/YYYY
- let date=idEl.dataset.iso||'';
- if(!date && idEl.value){
-  const m=idEl.value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if(m) date=m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
- }
- const time=document.getElementById('it').value,nguoi=document.getElementById('in').value;
- if(!CUR)return;
- if(!DIRTY[CUR])DIRTY[CUR]={};
- if(!UNSAVED[CUR])UNSAVED[CUR]={};
- if(!USER_EDITED[CUR])USER_EDITED[CUR]={};
- CD.forEach((_,i)=>{
-  if(!DIRTY[CUR][i])DIRTY[CUR][i]={};
-  DIRTY[CUR][i].ngay=date;DIRTY[CUR][i].gio=time;DIRTY[CUR][i].nguoi=nguoi;
-  // Trước đây appAll() ("Áp dụng tất cả") chỉ ghi vào DIRTY mà KHÔNG đánh dấu UNSAVED/USER_EDITED
-  // như onChg() vẫn làm cho từng ô gõ tay - khiến 1 lượt getSheetFull() chạy nền (vd do vừa mở
-  // sheet nhiều dữ liệu, mất vài giây) có thể về SAU và ghi đè mất Ngày KT/Giờ/Người KT vừa áp
-  // dụng bằng dữ liệu cũ, và savSheet() cũng không biết các dòng này cần lưu nếu dựa theo cờ dirty
-  // cũ. Đánh dấu đầy đủ ở đây để nhất quán với đường gõ tay từng ô.
-  if(!UNSAVED[CUR][i])UNSAVED[CUR][i]={};
-  UNSAVED[CUR][i].ngay=true;UNSAVED[CUR][i].gio=true;UNSAVED[CUR][i].nguoi=true;
-  if(!USER_EDITED[CUR][i])USER_EDITED[CUR][i]={};
-  USER_EDITED[CUR][i].ngay=true;USER_EDITED[CUR][i].gio=true;USER_EDITED[CUR][i].nguoi=true;
- });
- SHEET_SAVE_STATE[CUR]='dirty';
- persistDirty();
- // Hiển thị ngày dạng DD/MM/YYYY trong các ô text
- const dateDisp = date ? (()=>{ const p=date.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; })() : '';
- document.querySelectorAll('[data-f="ngay"]').forEach(el=>{
-  el.value=dateDisp;
-  if(date) el.dataset.isoVal=date;
- });
- document.querySelectorAll('[data-f="gio"]').forEach(el=>el.value=time);
- document.querySelectorAll('[data-f="nguoi"]').forEach(el=>el.value=nguoi);
+// =============================================
+// TỰ ĐIỀN Ngày KT / Giờ / Người KT CHO TỪNG HÀNG (thay cho ô nhập chung + nút "Áp dụng tất cả" đã bỏ - 2026-10-12)
+// Khi người dùng nhập/tick số liệu đầu tiên vào 1 hàng, app tự ghi Ngày = hôm nay, Giờ = lúc đó (giờ máy), Người = tên
+// vừa gõ gần nhất ở cột "Người KT" (chưa gõ lần nào thì lấy tên đăng nhập). Quy tắc:
+//  - ô nào người dùng đã tự gõ tay trong phiên này thì KHÔNG đụng tới;
+//  - hàng đã có Ngày KT của HÔM NAY (đã nhập trước đó) thì giữ nguyên cả bộ Ngày/Giờ/Người;
+//  - hàng còn trống, hoặc đang mang dữ liệu của NGÀY KHÁC (chưa "Xóa phiên") thì được điền mới.
+// Muốn ghi ngày/giờ/người khác (nhập bù): sửa trực tiếp ở các cột Ngày KT / Giờ / Người KT của hàng đó.
+// =============================================
+const STAMP_SKIP=['ngay','gio','nguoi','yeu_cau','norminal'];
+const STAMPED={}; // {sheet:{rowIdx:true}} - hàng đã được xét tự điền trong lần mở sheet này
+const LAST_NGUOI_KEY='ct34_last_nguoi';
+function lastNguoi(){
+ let v='';try{v=localStorage.getItem(LAST_NGUOI_KEY)||'';}catch(e){}
+ if(!v&&USER&&USER.email)v=USER.email.split('@')[0];
+ return v;
+}
+function stampIso(v){
+ v=String(v==null?'':v).trim();
+ if(!v)return '';
+ let m=v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+ if(m)return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
+ m=v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+ if(m)return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+ return null; // có nội dung nhưng không đọc được
+}
+function stampSet(i,f,val,disp,iso){
+ if(!DIRTY[CUR])DIRTY[CUR]={};if(!DIRTY[CUR][i])DIRTY[CUR][i]={};
+ if(!UNSAVED[CUR])UNSAVED[CUR]={};if(!UNSAVED[CUR][i])UNSAVED[CUR][i]={};
+ if(!USER_EDITED[CUR])USER_EDITED[CUR]={};if(!USER_EDITED[CUR][i])USER_EDITED[CUR][i]={};
+ DIRTY[CUR][i][f]=val;UNSAVED[CUR][i][f]=true;USER_EDITED[CUR][i][f]=true;
+ const el=document.querySelector('#r'+i+' [data-f="'+f+'"]');
+ if(el){el.value=disp;if(iso)el.dataset.isoVal=iso;}
+}
+function autoStampRow(i,f,v){
+ if(!CUR||STAMP_SKIP.includes(f)||v===''||v==null)return;
+ if(!STAMPED[CUR])STAMPED[CUR]={};
+ if(STAMPED[CUR][i])return;
+ const tr=document.getElementById('r'+i);if(!tr)return;
+ const hasN=!!tr.querySelector('[data-f="ngay"]'),hasG=!!tr.querySelector('[data-f="gio"]'),hasP=!!tr.querySelector('[data-f="nguoi"]');
+ if(!hasN&&!hasG&&!hasP)return; // sheet này không có các cột Ngày/Giờ/Người
+ STAMPED[CUR][i]=true;
+ const n=new Date(),p2=x=>String(x).padStart(2,'0');
+ const iso=n.getFullYear()+'-'+p2(n.getMonth()+1)+'-'+p2(n.getDate());
+ const disp=p2(n.getDate())+'/'+p2(n.getMonth()+1)+'/'+n.getFullYear();
+ const time=p2(n.getHours())+':'+p2(n.getMinutes());
+ const cur=stampIso(gv(i,'ngay'));
+ if(cur===null)return;                 // ô Ngày có chữ lạ -> không tự ý ghi đè
+ if(cur===iso)return;                  // hàng đã có Ngày KT hôm nay -> giữ nguyên
+ const ue=((USER_EDITED[CUR]||{})[i])||{};
+ let did=false;
+ if(hasN&&!ue.ngay){stampSet(i,'ngay',iso,disp,iso);did=true;}
+ if(hasG&&!ue.gio){stampSet(i,'gio',time,time);did=true;}
+ if(hasP&&!ue.nguoi){const nm=lastNguoi();if(nm){stampSet(i,'nguoi',nm,nm);did=true;}}
+ if(did){SHEET_SAVE_STATE[CUR]='dirty';}
 }
 
 // Trạng thái "Lưu phiên" cho TỪNG SHEET RIÊNG - trước đây dùng chung 1 bộ biến
