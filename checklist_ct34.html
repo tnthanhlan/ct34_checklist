@@ -809,7 +809,7 @@ function showUI() {
 // bên dưới (vd ngày-giờ) - trang đang mở sẽ tự phát hiện: nếu không có dữ liệu chưa lưu thì tự tải
 // lại, còn nếu đang có dữ liệu chưa lưu thì hiện thanh nhắc để họ lưu xong rồi bấm tải lại.
 // =============================================
-const APP_VERSION = '2026-10-12-4';
+const APP_VERSION = '2026-10-12-5';
 // Hiện số phiên bản ở đầu panel trái (☰ trên điện thoại) để biết điện thoại đang chạy bản nào.
 document.addEventListener('DOMContentLoaded',function(){var e=document.getElementById('app-ver');if(e)e.textContent='v'+APP_VERSION;});
 // =============================================
@@ -2609,12 +2609,12 @@ function setStats(ok,wa,da){
 // TỰ ĐIỀN Ngày KT / Giờ / Người KT CHO TỪNG HÀNG (thay cho ô nhập chung + nút "Áp dụng tất cả" đã bỏ - 2026-10-12)
 // Khi người dùng nhập/tick số liệu đầu tiên vào 1 hàng, app tự ghi Ngày = hôm nay, Giờ = lúc đó (giờ máy), Người = tên
 // vừa gõ gần nhất ở cột "Người KT" (chưa gõ lần nào thì lấy tên đăng nhập). Quy tắc:
-//  - ô nào người dùng đã tự gõ tay trong phiên này thì KHÔNG đụng tới;
+//  - ô đang gõ và ô nào người dùng đã tự gõ tay trong phiên này thì KHÔNG đụng tới (gõ tên trước -> Ngày + Giờ vẫn tự điền);
 //  - hàng đã có Ngày KT của HÔM NAY (đã nhập trước đó) thì giữ nguyên cả bộ Ngày/Giờ/Người;
 //  - hàng còn trống, hoặc đang mang dữ liệu của NGÀY KHÁC (chưa "Xóa phiên") thì được điền mới.
 // Muốn ghi ngày/giờ/người khác (nhập bù): sửa trực tiếp ở các cột Ngày KT / Giờ / Người KT của hàng đó.
 // =============================================
-const STAMP_SKIP=['ngay','gio','nguoi','yeu_cau','norminal'];
+const STAMP_SKIP=['yeu_cau','norminal']; // thay đổi các cột này KHÔNG kích hoạt tự điền (Ngày/Giờ/Người thì CÓ: gõ tên trước vẫn tự điền Ngày + Giờ)
 const STAMPED={}; // {sheet:{rowIdx:true}} - hàng đã được xét tự điền trong lần mở sheet này
 const LAST_NGUOI_KEY='ct34_last_nguoi';
 function lastNguoi(){
@@ -2652,13 +2652,13 @@ function autoStampRow(i,f,v){
  const disp=p2(n.getDate())+'/'+p2(n.getMonth()+1)+'/'+n.getFullYear();
  const time=p2(n.getHours())+':'+p2(n.getMinutes());
  const cur=stampIso(gv(i,'ngay'));
- if(cur===null)return;                 // ô Ngày có chữ lạ -> không tự ý ghi đè
  if(cur===iso)return;                  // hàng đã có Ngày KT hôm nay -> giữ nguyên
+ // cur==='' (trống) / null (chữ lạ, vd gõ dở "10") / ngày khác -> được điền mới. Ô đang được gõ (f) và ô người dùng đã tự gõ thì KHÔNG đụng tới.
  const ue=((USER_EDITED[CUR]||{})[i])||{};
  let did=false;
- if(hasN&&!ue.ngay){stampSet(i,'ngay',iso,disp,iso);did=true;}
- if(hasG&&!ue.gio){stampSet(i,'gio',time,time);did=true;}
- if(hasP&&!ue.nguoi){const nm=lastNguoi();if(nm){stampSet(i,'nguoi',nm,nm);did=true;}}
+ if(hasN&&f!=='ngay'&&!ue.ngay){stampSet(i,'ngay',iso,disp,iso);did=true;}
+ if(hasG&&f!=='gio'&&!ue.gio){stampSet(i,'gio',time,time);did=true;}
+ if(hasP&&f!=='nguoi'&&!ue.nguoi){const nm=lastNguoi();if(nm){stampSet(i,'nguoi',nm,nm);did=true;}}
  if(did){SHEET_SAVE_STATE[CUR]='dirty';}
 }
 
