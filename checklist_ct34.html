@@ -37,18 +37,24 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 #sbh{padding:9px 11px;border-bottom:1px solid var(--bd);background:#f8fafc}
 #sbh h2{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--mu);margin-bottom:1px}
 #sv{overflow-y:auto;flex:1;padding:4px 0}
-/* KHUNG "CÁC YÊU CẦU CƠ BẢN" dưới danh sách sheet ở panel trái (2026-10-09) - thu/mở được, nhớ lựa chọn */
-#req{flex-shrink:0;border-top:2px solid var(--hd);background:#f8fafc;max-height:46%;display:flex;flex-direction:column}
-#req>summary{cursor:pointer;padding:6px 11px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--hd);list-style:none;user-select:none;display:flex;justify-content:space-between;align-items:center;line-height:1.3}
-#req>summary::-webkit-details-marker{display:none}
-#req>summary::after{content:'▾';font-size:11px;margin-left:6px;flex-shrink:0}
-#req:not([open])>summary::after{content:'▸'}
-#req .rq-b{overflow-y:auto;padding:2px 11px 9px;font-size:11px;line-height:1.4;color:var(--tx)}
+/* KHUNG "CÁC YÊU CẦU CƠ BẢN" dưới danh sách sheet ở panel trái (2026-10-09) - thu/mở được, nhớ lựa chọn.
+   (2026-10-10) Làm bằng <div> + flex thay cho <details>: display:flex trên <details> không ép được chiều cao của phần nội dung nên
+   màn hình thấp thì nội dung bị cắt, không cuộn được tới mục "THIẾT BỊ TĨNH". Nay #req tự co (max 46% panel), phần nội dung .rq-b cuộn riêng. */
+#req{flex:0 1 auto;min-height:0;border-top:2px solid var(--hd);background:#f8fafc;max-height:46%;display:flex;flex-direction:column}
+#req>.rq-h{flex-shrink:0;cursor:pointer;padding:6px 11px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--hd);user-select:none;display:flex;justify-content:space-between;align-items:center;line-height:1.3}
+#req>.rq-h::after{content:'▾';font-size:11px;margin-left:6px;flex-shrink:0}
+#req:not(.open)>.rq-h::after{content:'▸'}
+#req .rq-b{display:none;flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:2px 11px 14px;font-size:11px;line-height:1.4;color:var(--tx)}
+#req.open .rq-b{display:block;
+ /* bóng mờ ở mép trên/dưới cho biết còn nội dung để cuộn */
+ background:linear-gradient(#f8fafc 30%,rgba(248,250,252,0)) top/100% 16px no-repeat local,linear-gradient(rgba(248,250,252,0),#f8fafc 70%) bottom/100% 16px no-repeat local,
+  radial-gradient(farthest-side at 50% 0,rgba(0,0,0,.22),rgba(0,0,0,0)) top/100% 7px no-repeat scroll,radial-gradient(farthest-side at 50% 100%,rgba(0,0,0,.22),rgba(0,0,0,0)) bottom/100% 7px no-repeat scroll}
 #req .rq-g{margin-top:7px}
 #req .rq-t{display:inline-block;font-size:9.5px;font-weight:700;padding:1px 7px;border-radius:9px;margin-bottom:2px;letter-spacing:.3px}
 #req .rq-run{background:#dcfce7;color:#166534}
 #req .rq-stop{background:#fee2e2;color:#991b1b}
 #req .rq-st{background:#dbeafe;color:#1e40af}
+#sv{min-height:90px}
 #req ol{margin:0;padding-left:16px}
 #req li{margin:1px 0}
 .dg{border-bottom:1px solid var(--bd)}
@@ -320,8 +326,8 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
    <div id="lp"><button class="btn" style="width:100%;font-weight:600" onclick="showLichTongThe()">📅 Lịch Tổng Thể</button></div>
    <div id="sbh"><h2>Lịch kiểm tra</h2><p style="font-size:11px;color:var(--mu)">Chọn sheet để nhập dữ liệu</p><p id="app-ver" style="font-size:10px;color:var(--mu);margin-top:3px"></p></div>
    <div id="sv"></div>
-   <details id="req">
-    <summary>Các yêu cầu cơ bản khi checklist thiết bị theo lịch</summary>
+   <div id="req">
+    <div class="rq-h" id="req-h" role="button" tabindex="0" onclick="toggleReq()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleReq();}">Các yêu cầu cơ bản khi checklist thiết bị theo lịch</div>
     <div class="rq-b">
      <div class="rq-g"><span class="rq-t rq-run">THIẾT BỊ ĐANG CHẠY</span>
       <ol>
@@ -337,7 +343,7 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
      <div class="rq-g"><span class="rq-t rq-st">CÁC THIẾT BỊ TĨNH</span>
       <div>Kiểm tra tình trạng thiết bị điện, tình trạng cơ học như các mục đề ra. Đánh giá phân loại để theo dõi.</div></div>
     </div>
-   </details>
+   </div>
   </div>
   <div id="ct">
    <div id="wc"><div class="ic">📋</div><h3>Chọn sheet kiểm tra từ lịch bên trái</h3><p style="font-size:12px;text-align:center;color:var(--mu)">Click tên sheet trong Lịch kiểm tra hoặc ô trong Lịch tổng thể</p></div>
@@ -794,7 +800,7 @@ function showUI() {
 // bên dưới (vd ngày-giờ) - trang đang mở sẽ tự phát hiện: nếu không có dữ liệu chưa lưu thì tự tải
 // lại, còn nếu đang có dữ liệu chưa lưu thì hiện thanh nhắc để họ lưu xong rồi bấm tải lại.
 // =============================================
-const APP_VERSION = '2026-10-10-1';
+const APP_VERSION = '2026-10-10-2';
 // Hiện số phiên bản ở đầu panel trái (☰ trên điện thoại) để biết điện thoại đang chạy bản nào.
 document.addEventListener('DOMContentLoaded',function(){var e=document.getElementById('app-ver');if(e)e.textContent='Phiên bản app: '+APP_VERSION;});
 // =============================================
@@ -1280,15 +1286,16 @@ function setSbOff(off,remember){
  app.classList.toggle('sb-off',!!off);
  if(remember){try{localStorage.setItem(SB_KEY,off?'1':'0');}catch(e){}}
 }
-// Khung "Các yêu cầu cơ bản": máy tính mặc định MỞ, điện thoại mặc định THU (để nhường chỗ danh sách sheet); nhớ lựa chọn.
+// Khung "Các yêu cầu cơ bản": máy tính mặc định MỞ, điện thoại mặc định THU (để nhường chỗ danh sách sheet); nhớ lựa chọn do người dùng bấm.
 function initReqBox(){
  const d=document.getElementById('req');if(!d)return;
  let v=null;try{v=localStorage.getItem('ct34_req_open');}catch(e){}
- let ready=false;
- d.open=(v===null)?isDesktopLayout():(v==='1');
- // sự kiện 'toggle' bắn bất đồng bộ cả khi mình tự đặt trạng thái mặc định -> bỏ qua đến khi khởi tạo xong, chỉ nhớ lựa chọn do NGƯỜI DÙNG bấm
- d.addEventListener('toggle',function(){if(!ready)return;try{localStorage.setItem('ct34_req_open',d.open?'1':'0');}catch(e){}});
- setTimeout(function(){ready=true;},400);
+ d.classList.toggle('open',(v===null)?isDesktopLayout():(v==='1'));
+}
+function toggleReq(){
+ const d=document.getElementById('req');if(!d)return;
+ const o=d.classList.toggle('open');
+ try{localStorage.setItem('ct34_req_open',o?'1':'0');}catch(e){}
 }
 function initSbState(){
  let v=null;try{v=localStorage.getItem(SB_KEY);}catch(e){}
