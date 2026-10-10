@@ -809,7 +809,7 @@ function showUI() {
 // bên dưới (vd ngày-giờ) - trang đang mở sẽ tự phát hiện: nếu không có dữ liệu chưa lưu thì tự tải
 // lại, còn nếu đang có dữ liệu chưa lưu thì hiện thanh nhắc để họ lưu xong rồi bấm tải lại.
 // =============================================
-const APP_VERSION = '2026-10-12-5';
+const APP_VERSION = '2026-10-12-6';
 // Hiện số phiên bản ở đầu panel trái (☰ trên điện thoại) để biết điện thoại đang chạy bản nào.
 document.addEventListener('DOMContentLoaded',function(){var e=document.getElementById('app-ver');if(e)e.textContent='v'+APP_VERSION;});
 // =============================================
@@ -1383,7 +1383,7 @@ function openSheet(sn){
  const info=DB[sn];
  CD=info?info.devices:[];
  document.getElementById('shm').textContent=(CD.length||'?')+' thiết bị';
-  STAMPED[sn]={}; // mở/làm mới sheet -> các hàng được tự điền Ngày/Giờ/Người lại từ đầu
+  STAMPED[sn]={};BASE[sn]={};TOUCHED[sn]={}; // mở/làm mới sheet -> theo dõi sửa/tự điền bắt đầu lại từ đầu
 
  // Reset DIRTY cho sheet này mỗi lần mở để luôn load mới từ server - NHƯNG chỉ xoá thẳng tay khi
  // chắc chắn không có gì bị mất (sheet chưa từng sửa, hoặc lần "Lưu phiên" gần nhất đã thành công
@@ -2007,6 +2007,7 @@ function onChg(e){
  }
 
  // Nhập/tick số liệu vào hàng -> tự điền Ngày/Giờ/Người KT nếu hàng chưa có (xem autoStampRow)
+ snapBase(i);
  autoStampRow(i,f,v);
  // Người dùng tự gõ tên ở cột Người KT -> nhớ để các hàng sau tự điền cùng tên
  if(f==='nguoi'&&String(v||'').trim()){try{localStorage.setItem(LAST_NGUOI_KEY,String(v).trim());}catch(e){}}
@@ -2027,6 +2028,9 @@ function onChg(e){
  if(!USER_EDITED[CUR])USER_EDITED[CUR]={};
  if(!USER_EDITED[CUR][i])USER_EDITED[CUR][i]={};
  USER_EDITED[CUR][i][f]=true;
+
+ // Gõ nhầm rồi xóa -> trả về nguyên trạng (xem afterEditRevert)
+ if(afterEditRevert(i,f,v,e)===true)return;   // đã trả lại giá trị cũ (onChg chạy lại cho giá trị mới)
 
  // Lưu local
  persistDirty();
@@ -2635,6 +2639,11 @@ function stampSet(i,f,val,disp,iso){
  if(!DIRTY[CUR])DIRTY[CUR]={};if(!DIRTY[CUR][i])DIRTY[CUR][i]={};
  if(!UNSAVED[CUR])UNSAVED[CUR]={};if(!UNSAVED[CUR][i])UNSAVED[CUR][i]={};
  if(!USER_EDITED[CUR])USER_EDITED[CUR]={};if(!USER_EDITED[CUR][i])USER_EDITED[CUR][i]={};
+ const st=STAMPED[CUR][i];
+ if(st&&typeof st==='object'){ // nhớ trạng thái TRƯỚC khi tự điền để còn trả lại được
+  st.orig[f]=effVal(i,f);st.set[f]=val;
+  st.flags[f]={u:!!UNSAVED[CUR][i][f],e:!!USER_EDITED[CUR][i][f]};
+ }
  DIRTY[CUR][i][f]=val;UNSAVED[CUR][i][f]=true;USER_EDITED[CUR][i][f]=true;
  const el=document.querySelector('#r'+i+' [data-f="'+f+'"]');
  if(el){el.value=disp;if(iso)el.dataset.isoVal=iso;}
@@ -2654,12 +2663,105 @@ function autoStampRow(i,f,v){
  const cur=stampIso(gv(i,'ngay'));
  if(cur===iso)return;                  // hàng đã có Ngày KT hôm nay -> giữ nguyên
  // cur==='' (trống) / null (chữ lạ, vd gõ dở "10") / ngày khác -> được điền mới. Ô đang được gõ (f) và ô người dùng đã tự gõ thì KHÔNG đụng tới.
+ STAMPED[CUR][i]={orig:{},set:{},flags:{}};
  const ue=((USER_EDITED[CUR]||{})[i])||{};
  let did=false;
  if(hasN&&f!=='ngay'&&!ue.ngay){stampSet(i,'ngay',iso,disp,iso);did=true;}
  if(hasG&&f!=='gio'&&!ue.gio){stampSet(i,'gio',time,time);did=true;}
  if(hasP&&f!=='nguoi'&&!ue.nguoi){const nm=lastNguoi();if(nm){stampSet(i,'nguoi',nm,nm);did=true;}}
  if(did){SHEET_SAVE_STATE[CUR]='dirty';}
+ else delete STAMPED[CUR][i];
+}
+
+// =============================================
+// NHẬP NHẦM DÒNG RỒI XÓA -> TRẢ VỀ NGUYÊN TRẠNG (2026-10-12)
+//  - Mỗi hàng được chụp "giá trị gốc" (BASE) ngay trước lần sửa đầu tiên.
+//  - Ô số liệu đã gõ rồi xóa trắng (khi rời ô): nếu trước đó ô có dữ liệu thì khôi phục dữ liệu cũ; nếu không có thì để trống.
+//    (Xóa trắng ngay từ đầu mà chưa gõ gì = chủ ý xóa, vẫn xóa.)
+//  - Khi toàn bộ số liệu của hàng quay về đúng như ban đầu thì Ngày KT / Giờ / Người KT cũng trả về như cũ
+//    (hàng trước đó trống -> trống lại; hàng trước đó có dữ liệu -> khôi phục ngày giờ người cũ) và bỏ cờ "chưa lưu" của hàng.
+//  - Sau khi "Lưu phiên" xong hàng nào thì hàng đó được coi là mốc mới (không trả về trước lúc lưu).
+// =============================================
+const META_F=['ngay','gio','nguoi','norminal','yeu_cau'];
+const BASE={},TOUCHED={};
+function effVal(i,f){
+ const d=((DIRTY[CUR]||{})[i])||{};
+ if(Object.prototype.hasOwnProperty.call(d,f)&&d[f]!==undefined&&d[f]!==null)return String(d[f]);
+ const dr=CD[i]||{};return dr[f]==null?'':String(dr[f]);
+}
+function sameVal(a,b){
+ a=String(a==null?'':a).trim();b=String(b==null?'':b).trim();
+ if(a===b)return true;
+ const x=parseFloat(a.replace(',','.')),y=parseFloat(b.replace(',','.'));
+ return a!==''&&b!==''&&!isNaN(x)&&!isNaN(y)&&x===y;
+}
+function snapBase(i){
+ if(!CUR)return;if(!BASE[CUR])BASE[CUR]={};
+ if(BASE[CUR][i])return;
+ const o={};Object.keys(getColMap(CUR)).forEach(f=>{o[f]=effVal(i,f);});
+ BASE[CUR][i]=o;
+}
+function rowAtBaseline(i){
+ const b=BASE[CUR]&&BASE[CUR][i];if(!b)return false;
+ return Object.keys(b).every(f=>META_F.includes(f)||sameVal(effVal(i,f),b[f]));
+}
+function resetEditTracking(sn,i){
+ [BASE,TOUCHED,STAMPED].forEach(m=>{if(!m[sn])return;if(i===undefined)m[sn]={};else delete m[sn][i];});
+}
+function revertStamp(i){
+ const st=STAMPED[CUR]&&STAMPED[CUR][i];
+ if(!st||typeof st!=='object')return;
+ const d=DIRTY[CUR]&&DIRTY[CUR][i];if(!d)return;
+ ['ngay','gio','nguoi'].forEach(f=>{
+  if(!(f in st.set))return;
+  const cur=effVal(i,f);
+  if(cur!==st.set[f]&&cur!=='')return;       // người dùng đã tự sửa thành giá trị khác -> giữ
+  const orig=st.orig[f];
+  d[f]=orig;
+  const el=document.querySelector('#r'+i+' [data-f="'+f+'"]');
+  if(el){
+   if(f==='ngay'){const m=String(orig).match(/^(\d{4})-(\d{2})-(\d{2})$/);el.value=m?m[3]+'/'+m[2]+'/'+m[1]:orig;if(m)el.dataset.isoVal=orig;else delete el.dataset.isoVal;}
+   else el.value=orig;
+  }
+  const fl=st.flags[f]||{};
+  if(UNSAVED[CUR]&&UNSAVED[CUR][i]){if(fl.u)UNSAVED[CUR][i][f]=true;else delete UNSAVED[CUR][i][f];}
+  if(USER_EDITED[CUR]&&USER_EDITED[CUR][i]){if(fl.e)USER_EDITED[CUR][i][f]=true;else delete USER_EDITED[CUR][i][f];}
+ });
+ delete STAMPED[CUR][i];
+}
+// Ô nào đã quay về đúng giá trị gốc thì không còn là "chưa lưu" (khỏi cảnh báo/ghi thừa)
+function cleanBaselineFlags(i){
+ const b=BASE[CUR]&&BASE[CUR][i];if(!b)return;
+ Object.keys(b).forEach(f=>{
+  if(f==='norminal'||f==='yeu_cau')return;
+  if(UNSAVED[CUR]&&UNSAVED[CUR][i]&&UNSAVED[CUR][i][f]&&sameVal(effVal(i,f),b[f])){
+   delete UNSAVED[CUR][i][f];
+   if(USER_EDITED[CUR]&&USER_EDITED[CUR][i])delete USER_EDITED[CUR][i][f];
+  }
+ });
+ persistDirty();
+}
+function afterEditRevert(i,f,v,e){
+ if(!CUR)return;
+ const b=BASE[CUR]&&BASE[CUR][i];if(!b)return;
+ const val=String(v==null?'':v).trim();
+ if(!TOUCHED[CUR])TOUCHED[CUR]={};if(!TOUCHED[CUR][i])TOUCHED[CUR][i]={};
+ if(META_F.includes(f)){
+  if(val===''&&rowAtBaseline(i)){revertStamp(i);cleanBaselineFlags(i);}
+  return;
+ }
+ const tag=e&&e.target&&e.target.tagName;
+ const commit=!e||e.type==='change'||tag==='SELECT'||tag==='SPAN';   // chỉ xét "xóa trắng" khi rời ô, không xét từng phím
+ if(val!==''){
+  if(!sameVal(val,b[f]))TOUCHED[CUR][i][f]=true;
+ }else if(commit&&TOUCHED[CUR][i][f]&&String(b[f]).trim()!==''&&(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT')){
+  // đã gõ rồi xóa trắng một ô vốn có dữ liệu -> trả lại dữ liệu cũ
+  const el=e.target;el.value=b[f];
+  delete TOUCHED[CUR][i][f];
+  el.dispatchEvent(new Event('change',{bubbles:true}));   // chạy lại onChg để cập nhật DIRTY + màu cảnh báo
+  return true;
+ }
+ if(rowAtBaseline(i)){revertStamp(i);cleanBaselineFlags(i);}
 }
 
 // Trạng thái "Lưu phiên" cho TỪNG SHEET RIÊNG - trước đây dùng chung 1 bộ biến
@@ -2754,6 +2856,7 @@ async function savSheet(){
     // thị dùng chung cho gv()), nếu không các cột như Ngày KT sẽ biến mất khỏi màn hình ngay sau
     // khi lưu thành công dù dữ liệu đã an toàn trên server (bug gốc "lưu phiên xong ngày KT mất").
     if(UNSAVED[sheetAtStart])delete UNSAVED[sheetAtStart][rowIdx];
+    resetEditTracking(sheetAtStart,rowIdx); // hàng đã lưu xong -> mốc mới
     // Ghi NGAY xuống localStorage sau MỖI dòng lưu xong (không đợi lưu hết cả lô) - trước đây
     // chỉ ghi 1 lần lúc bắt đầu + 1 lần lúc lưu xong HẾT, nên nếu tab bị tải lại hoặc bị hệ điều
     // hành thu hồi dở chừng lúc đang lưu (rất hay gặp trên điện thoại khi khoá màn hình/chuyển
@@ -2802,6 +2905,7 @@ function clrSheet(){
  if(DIRTY[CUR])delete DIRTY[CUR];
  if(UNSAVED[CUR])delete UNSAVED[CUR];
  if(USER_EDITED[CUR])delete USER_EDITED[CUR];
+ resetEditTracking(CUR);
  SHEET_SAVE_STATE[CUR]='clean'; // người dùng chủ động xoá, không phải mất do lỗi -> không cần cảnh báo lần sau
  persistDirty();
  renderTable();
