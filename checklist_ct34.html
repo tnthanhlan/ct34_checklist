@@ -809,7 +809,7 @@ function showUI() {
 // bên dưới (vd ngày-giờ) - trang đang mở sẽ tự phát hiện: nếu không có dữ liệu chưa lưu thì tự tải
 // lại, còn nếu đang có dữ liệu chưa lưu thì hiện thanh nhắc để họ lưu xong rồi bấm tải lại.
 // =============================================
-const APP_VERSION = '2026-10-12-6';
+const APP_VERSION = '2026-10-12-7';
 // Hiện số phiên bản ở đầu panel trái (☰ trên điện thoại) để biết điện thoại đang chạy bản nào.
 document.addEventListener('DOMContentLoaded',function(){var e=document.getElementById('app-ver');if(e)e.textContent='v'+APP_VERSION;});
 // =============================================
@@ -1087,7 +1087,7 @@ function jsonpRequest(action, params = {}, timeoutMs = 15000) {
 // =============================================
 // GỌI API - GET dùng JSONP (đọc kết quả được), POST dùng no-cors (ghi, không đọc được response)
 // =============================================
-async function callAPI(action, params={}, body=null, outerSignal=null) {
+async function callAPI(action, params={}, body=null, outerSignal=null, postTimeoutMs=10000) {
   if (OFFLINE_MODE) {
     // Offline mode: trả về empty
     return {};
@@ -1126,7 +1126,8 @@ async function callAPI(action, params={}, body=null, outerSignal=null) {
   // khi được kích hoạt sẽ abort NGAY request đang chờ, thay vì phải đợi đủ 10s timeout mới dừng.
   const url = API_URL;
   const ac = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-  const toId = ac ? setTimeout(() => ac.abort(), 10000) : null;
+  let timedOut = false;
+  const toId = ac ? setTimeout(() => { timedOut = true; ac.abort(); }, postTimeoutMs) : null;
   const onOuterAbort = ac ? () => ac.abort() : null;
   if (ac && outerSignal) {
     if (outerSignal.aborted) ac.abort();
@@ -1140,6 +1141,11 @@ async function callAPI(action, params={}, body=null, outerSignal=null) {
       body: JSON.stringify({ action, email: myEmail, ...body }),
       ...(ac ? { signal: ac.signal } : {})
     });
+  } catch (err) {
+    // Hết giờ chờ (do timer của mình, không phải người dùng bấm Huỷ) -> đánh dấu để saveToServer
+    // KHÔNG gửi lại ngay (server nhiều khả năng vẫn đang xử lý dòng này, gửi lại chỉ chồng thêm tải).
+    if (timedOut && !(outerSignal && outerSignal.aborted)) { const te = new Error('timeout'); te.timeout = true; throw te; }
+    throw err;
   } finally {
     if (toId) clearTimeout(toId);
     if (ac && outerSignal) outerSignal.removeEventListener('abort', onOuterAbort);
@@ -1161,7 +1167,7 @@ async function saveToServer(sheetName, rowIndex, fields, opts) {
   if (OFFLINE_MODE) return true;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const result = await callAPI('saveRow', {}, { sheetName, rowIndex, fields }, opts.signal || null);
+      const result = await callAPI('saveRow', {}, { sheetName, rowIndex, fields }, opts.signal || null, 60000);
       if (result && result.success) return true;
       if (!opts.silent) showToast('⚠ ' + ((result && result.error) || 'Lỗi khi lưu'), 'warn');
       return false;
@@ -1169,6 +1175,12 @@ async function saveToServer(sheetName, rowIndex, fields, opts) {
       // Nếu bị huỷ chủ động (người dùng bấm "Huỷ lưu") thì dừng NGAY, không chờ 700ms rồi thử
       // lại - chờ thêm lúc này chỉ làm nút Huỷ có cảm giác "lag", không có ích gì.
       if (opts.signal && opts.signal.aborted) return false;
+      // Hết giờ chờ (server chậm): không thử lại - request đã tới server và có thể đang chạy, gửi
+      // lại chỉ làm server chậm thêm. Dòng này vẫn nằm trong hàng đợi (UNSAVED), bấm "Lưu phiên" lại là xong.
+      if (e && e.timeout) {
+        if (!opts.silent) showToast('⚠ Server phản hồi quá chậm (dòng ' + rowIndex + '), dữ liệu vẫn giữ lại để lưu lại sau', 'warn');
+        return false;
+      }
       if (attempt === 0) {
         await new Promise(r => setTimeout(r, 700));
         continue;
@@ -2835,7 +2847,7 @@ async function savSheet(){
  // hạn số lượt thực thi đồng thời), nhưng cũng KHÔNG lưu tuần tự từng-dòng-một (quá chậm khi
  // có nhiều dòng hoặc mạng chập chờn - mỗi dòng lỗi có thể mất tới ~20s do phải thử lại +
  // timeout, cộng dồn 58 dòng thành nhiều phút "treo" y như report của người dùng).
- const CONCURRENCY = 5;
+ const CONCURRENCY = 3;
  let okCount=0, doneCount=0; const failedRows=[];
  let nextIdx=0;
  async function worker(){
@@ -2843,9 +2855,12 @@ async function savSheet(){
    if(sess.cancel)return;
    const my=nextIdx++;
    const rowIdx=pendingRows[my];
-   // Gửi TOÀN BỘ giá trị hiện có của dòng (kể cả field không nằm trong UNSAVED) - giữ hành vi cũ
-   // (server nhận đủ field theo dòng); resend field đã lưu đúng rồi là vô hại (idempotent).
-   const fields = (DIRTY[sheetAtStart] && DIRTY[sheetAtStart][rowIdx]) || {};
+   // v2026-10-12-7: CHỈ gửi các field đang chưa lưu (UNSAVED) thay vì cả dòng. Gửi cả dòng (~50-60
+   // field) khiến Apps Script ghi từng ô một mất >10-20s/dòng -> quá hạn chờ -> báo "0/13 dòng".
+   const allF = (DIRTY[sheetAtStart] && DIRTY[sheetAtStart][rowIdx]) || {};
+   const unF = (UNSAVED[sheetAtStart] && UNSAVED[sheetAtStart][rowIdx]) || {};
+   const fields = {};
+   Object.keys(unF).forEach(k=>{ if(unF[k] && Object.prototype.hasOwnProperty.call(allF,k)) fields[k]=allF[k]; });
    const ok = await saveToServer(sheetAtStart,getSheetRowIndex(parseInt(rowIdx)),fields,{silent:true,signal:mySignal});
    if(sess.cancel)return;
    doneCount++;
@@ -2855,8 +2870,14 @@ async function savSheet(){
     // Chỉ xoá cờ "chưa lưu" khỏi UNSAVED - KHÔNG đụng vào DIRTY[sheetAtStart][rowIdx] (cache hiển
     // thị dùng chung cho gv()), nếu không các cột như Ngày KT sẽ biến mất khỏi màn hình ngay sau
     // khi lưu thành công dù dữ liệu đã an toàn trên server (bug gốc "lưu phiên xong ngày KT mất").
-    if(UNSAVED[sheetAtStart])delete UNSAVED[sheetAtStart][rowIdx];
-    resetEditTracking(sheetAtStart,rowIdx); // hàng đã lưu xong -> mốc mới
+    // Chỉ xoá cờ của những field VỪA gửi và chưa bị sửa lại trong lúc đang lưu (nếu người dùng gõ
+    // tiếp ở ô đó giữa chừng thì giữ cờ để lần "Lưu phiên" sau gửi giá trị mới).
+    if(UNSAVED[sheetAtStart]&&UNSAVED[sheetAtStart][rowIdx]){
+     const cur=(DIRTY[sheetAtStart]&&DIRTY[sheetAtStart][rowIdx])||{};
+     Object.keys(fields).forEach(k=>{ if(cur[k]===fields[k]) delete UNSAVED[sheetAtStart][rowIdx][k]; });
+     if(!Object.keys(UNSAVED[sheetAtStart][rowIdx]).length) delete UNSAVED[sheetAtStart][rowIdx];
+    }
+    if(!(UNSAVED[sheetAtStart]&&UNSAVED[sheetAtStart][rowIdx])) resetEditTracking(sheetAtStart,rowIdx); // hàng đã lưu sạch -> mốc mới
     // Ghi NGAY xuống localStorage sau MỖI dòng lưu xong (không đợi lưu hết cả lô) - trước đây
     // chỉ ghi 1 lần lúc bắt đầu + 1 lần lúc lưu xong HẾT, nên nếu tab bị tải lại hoặc bị hệ điều
     // hành thu hồi dở chừng lúc đang lưu (rất hay gặp trên điện thoại khi khoá màn hình/chuyển
