@@ -809,7 +809,7 @@ function showUI() {
 // bên dưới (vd ngày-giờ) - trang đang mở sẽ tự phát hiện: nếu không có dữ liệu chưa lưu thì tự tải
 // lại, còn nếu đang có dữ liệu chưa lưu thì hiện thanh nhắc để họ lưu xong rồi bấm tải lại.
 // =============================================
-const APP_VERSION = '2026-11-22-1';
+const APP_VERSION = '2026-11-22-2';
 // Hiện số phiên bản ở đầu panel trái (☰ trên điện thoại) để biết điện thoại đang chạy bản nào.
 document.addEventListener('DOMContentLoaded',function(){var e=document.getElementById('app-ver');if(e)e.textContent='v'+APP_VERSION;});
 // =============================================
@@ -1549,15 +1549,17 @@ const COL_MAP = {
   tong_the_ip:45,air_flow:46,khop_noi_hgt:47,noise:48,
   canh_bao:49,danh_gia:50,dien_giai:51,ket_luan:52,ghi_chu:53
  },
+ // (2026-11-22) Sheet 20 Bơm Nước: chèn thêm cột W-L THẬT (cột O=15) ngay sau W-UL (cột N=14) -> mọi cột từ Đ.Mức trở đi dịch +1.
+ // PHẢI khớp bomMap bên Code.gs. Chạy addWLColumn20_2026_11_22() 1 LẦN bên Apps Script để chèn cột thật trên Sheet.
  motor_bom: {
   ngay:5,gio:6,nguoi:7,run:8,stp:9,
-  I_U_u:10,I_U_l:11,I_V_u:12,I_V_l:13,I_W_u:14,
-  norminal:15,
-  hn_u_t0:16,hn_u_nok:17,hn_v_t0:18,hn_v_nok:19,hn_w_t0:20,hn_w_nok:21,
-  t_dc:22,t_s2:23,t_s3:24,
-  obi_khop:25,obi_dend:26,obi_ndend:27,
-  tu_all:28,tu_q:29,tu_k1:30,tu_k2:31,tu_k3:32,
-  canh_bao:39,danh_gia:40,dien_giai:41,ket_luan:42,ghi_chu:43
+  I_U_u:10,I_U_l:11,I_V_u:12,I_V_l:13,I_W_u:14,I_W_l:15,
+  norminal:16,
+  hn_u_t0:17,hn_u_nok:18,hn_v_t0:19,hn_v_nok:20,hn_w_t0:21,hn_w_nok:22,
+  t_dc:23,t_s2:24,t_s3:25,
+  obi_khop:26,obi_dend:27,obi_ndend:28,
+  tu_all:29,tu_q:30,tu_k1:31,tu_k2:32,tu_k3:33,
+  canh_bao:40,danh_gia:41,dien_giai:42,ket_luan:43,ghi_chu:44
  },
  // (2026-10-10) User bỏ hẳn khối CT32 (4 cột Incoming/Z2U06/Z2U08/MCC) khỏi sheet 17 -> Kết luận/Ghi chú lùi về cột 43/44.
  tba: {
@@ -1585,16 +1587,18 @@ const COL_MAP = {
  // bên Code.gs và renderCDC()'s header.
  // (2026-10-05) Thêm cặp cột CBLL-IN/CBLL-OUT (cột K,L) giữa CBT1 và CBT2 -> mọi cột từ CBT2 trở đi dịch +2.
  // (2026-10-09) Thêm cột "BA" (nhiệt độ thùng dầu BA, như sheet 17 TBA) ở ĐẦU khối T201 (cột 19) và ĐẦU khối TXLN (cột 26) -> các cột sau dịch +1/+2.
+ // (2026-11-22) Thêm cột "Người KT" (cột C=3) ngay sau Ngày KT -> mọi cột từ Đối tượng trở đi dịch +1. PHẢI khớp cdcMap bên Code.gs.
+ // Chạy addNguoiKTColumn18_2026_11_22() 1 LẦN bên Apps Script để chèn cột thật trên Sheet.
  cdccdcl: {
-  ngay:2,ok:7,nok:8,
-  dbxln_cbt1_in:9,dbxln_cbt1_out:10,dbxln_cbll_in:11,dbxln_cbll_out:12,dbxln_cbt2_in:13,dbxln_cbt2_out:14,
-  dbxln_cbmotor_in:15,dbxln_cbmotor_out:16,dbxln_kdtmotor_in:17,dbxln_kdtmotor_out:18,
-  t201_ba:19,t201_ba_ca:20,t201_ba_ha:21,t201_cctr_xln_tren:22,t201_cctr_xln_duoi:23,t201_cctr_ba_tren:24,t201_cctr_ba_duoi:25,
-  txln_ba:26,txln_t1_ca:27,txln_t1_ha:28,txln_t2_ca:29,txln_t2_ha:30,
-  txln_cctr_vt_tren:31,txln_cctr_vt_duoi:32,txln_cctr_ba1_tren:33,txln_cctr_ba1_duoi:34,
-  txln_cctr_ll_tren:35,txln_cctr_ll_duoi:36,txln_cctr_ba2_tren:37,txln_cctr_ba2_duoi:38,
-  txln_ddtk:39,
-  canh_bao:40,danh_gia:41,dien_giai:42,ket_luan:43,ghi_chu:44
+  ngay:2,nguoi:3,ok:8,nok:9,
+  dbxln_cbt1_in:10,dbxln_cbt1_out:11,dbxln_cbll_in:12,dbxln_cbll_out:13,dbxln_cbt2_in:14,dbxln_cbt2_out:15,
+  dbxln_cbmotor_in:16,dbxln_cbmotor_out:17,dbxln_kdtmotor_in:18,dbxln_kdtmotor_out:19,
+  t201_ba:20,t201_ba_ca:21,t201_ba_ha:22,t201_cctr_xln_tren:23,t201_cctr_xln_duoi:24,t201_cctr_ba_tren:25,t201_cctr_ba_duoi:26,
+  txln_ba:27,txln_t1_ca:28,txln_t1_ha:29,txln_t2_ca:30,txln_t2_ha:31,
+  txln_cctr_vt_tren:32,txln_cctr_vt_duoi:33,txln_cctr_ba1_tren:34,txln_cctr_ba1_duoi:35,
+  txln_cctr_ll_tren:36,txln_cctr_ll_duoi:37,txln_cctr_ba2_tren:38,txln_cctr_ba2_duoi:39,
+  txln_ddtk:40,
+  canh_bao:41,danh_gia:42,dien_giai:43,ket_luan:44,ghi_chu:45
  },
  // (2026-09-22) Sheet "19 KT Nhà Trạm" gốc trên Google Sheets TRƯỚC ĐÂY không hề có cột Ngày
  // KT/Giờ/Người KT (đối chiếu Code.gs: nhaTramMap cũng thiếu y hệt) - nên dù nhập/lưu bao nhiêu
@@ -2210,7 +2214,7 @@ function renderMotor(tp){
    <td>${tkSingle(i,'run',gv(i,'run'),'run-on','stp')}</td><td>${tkSingle(i,'stp',gv(i,'stp'),'stp-on','run')}</td>
    <td>${aI(i,'I_U_u',nm)}</td><td>${aI(i,'I_U_l',nm)}</td>
    <td>${aI(i,'I_V_u',nm)}</td><td>${aI(i,'I_V_l',nm)}</td>
-   <td>${aI(i,'I_W_u',nm)}</td><td>${isBom?nI(i,'I_W_u','',48):aI(i,'I_W_l',nm)}</td>
+   <td>${aI(i,'I_W_u',nm)}</td><td>${aI(i,'I_W_l',nm)}</td>
    <td class="nm">${(USER&&USER.role==='admin')?`<input class="ci" data-i="${i}" data-f="norminal" value="${nm!==null&&nm!==undefined?nm:''}" type="text" title="Admin: sửa Định mức" style="width:50px;text-align:center;font-weight:700;color:var(--ac);background:#fff;border:1px dashed var(--ac)">`:(nm!==null&&nm!==undefined?nm:'–')}</td>
    <td>${nI(i,'hn_u_t0',gv(i,'hn_u_t0'))}</td><td>${sN(i,'hn_u_nok',gv(i,'hn_u_nok'))}</td>
    <td>${nI(i,'hn_v_t0',gv(i,'hn_v_t0'))}</td><td>${sN(i,'hn_v_nok',gv(i,'hn_v_nok'))}</td>
@@ -2310,7 +2314,7 @@ function renderTBA(){
 // (T1-CA/HA, T2-CA/HA, rồi CCTR tách 4 nhóm x TRÊN/DƯỚI: VÀO TRẠM/BA1/LIÊN LẠC/BA2, cuối
 // cùng là ĐDTK). Tổng colspan phải = đúng số cột thật: 2+10+7+14=33 cột đo + 6 cột cố định đầu
 // (STT/Đối tượng/Phần tử/Ngày KT/Yêu cầu/ĐVT) + 5 cột cuối (Cảnh báo/Đánh giá/Diễn giải/Kết
-// luận/Ghi chú) = 44 cột, khớp COL_MAP.cdccdcl (ngay:2...ghi_chu:44) và cdcMap bên Code.gs.
+// luận/Ghi chú) = 44 cột, khớp COL_MAP.cdccdcl (ngay:2,nguoi:3...ghi_chu:45; từ 2026-11-22 có thêm cột Người KT) và cdcMap bên Code.gs.
 // (2026-10-09) +2 cột "BA" (nhiệt độ thùng dầu) đầu T201 và đầu TXLN (data-lb dùng cho nhãn chip cảnh báo).
 function renderCDC(){
  document.getElementById('th').innerHTML=`
@@ -2319,6 +2323,7 @@ function renderCDC(){
   <th class="ellip64" rowspan="2" data-cr="dt" style="min-width:var(--ct-dt,64px);max-width:var(--ct-dt,64px);position:sticky;left:30px;z-index:18;background:#1e3a5f">Đối tượng</th>
   <th class="ellip64" rowspan="2" data-cr="pt" style="min-width:var(--ct-pt,64px);max-width:var(--ct-pt,64px);position:sticky;left:calc(30px + var(--ct-dt,64px));z-index:18;background:#1e3a5f">Phần tử</th>
   <th rowspan="2" style="min-width:84px">Ngày KT</th>
+  <th rowspan="2" style="min-width:76px">Người KT</th>
   <th rowspan="2" style="min-width:100px">Yêu cầu</th><th rowspan="2" style="min-width:36px">ĐVT</th>
   <th class="h2" colspan="2">Tình trạng</th>
   <th class="h4" colspan="10">DB XLN</th>
@@ -2341,7 +2346,7 @@ function renderCDC(){
   const tr=document.createElement('tr');tr.id='r'+i;if(nok&&nok!=='')tr.className='rW';
   tr.innerHTML=`<td class="sk" style="text-align:center;font-size:10px">${dev.stt||''}</td>
    <td class="ellip64" title="${dev.doi_tuong}" style="position:sticky;left:30px;z-index:17;background:#f8fafc;font-weight:600;font-size:10px;max-width:var(--ct-dt,64px)">${dev.doi_tuong}</td>
-   <td class="ellip64" title="${dev.phan_tu}" style="position:sticky;left:calc(30px + var(--ct-dt,64px));z-index:17;background:#f8fafc;font-size:10px;max-width:var(--ct-pt,64px)">${dev.phan_tu}</td><td>${dI(i,'ngay',gv(i,'ngay'))}</td>
+   <td class="ellip64" title="${dev.phan_tu}" style="position:sticky;left:calc(30px + var(--ct-dt,64px));z-index:17;background:#f8fafc;font-size:10px;max-width:var(--ct-pt,64px)">${dev.phan_tu}</td><td>${dI(i,'ngay',gv(i,'ngay'))}</td><td>${xI(i,'nguoi',gv(i,'nguoi'),74)}</td>
    <td style="font-size:10px;color:var(--mu)">${(USER&&USER.role==='admin')?`<input class="ci" data-i="${i}" data-f="yeu_cau" value="${(getYeuCau(i)||'').toString().replace(/"/g,'&quot;')}" type="text" title="Admin: sửa Yêu cầu" style="width:82px;border:1px dashed var(--ac)">`:(dev.yeu_cau||'')}</td>
    <td style="text-align:center;font-size:10px">${dev.dvt||''}</td>
    <td>${tkSingle(i,'ok',gv(i,'ok'),'run-on','nok')}</td><td>${tkSingle(i,'nok',gv(i,'nok'),'stp-on','ok')}</td>
