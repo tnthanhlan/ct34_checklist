@@ -177,6 +177,9 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
 .tk1.stp-on{background:var(--rw);border-color:var(--rb);color:var(--rt);font-weight:700}
 .rW td:not(.nm):not(.sk):not(.sk2){background:var(--yw)!important}
 .rD td:not(.nm):not(.sk):not(.sk2){background:var(--rw)!important}
+/* (2026-11-22) Hàng đã nhập số liệu trong phiên này mà CHƯA tick (OK/NOK, RUN/STOP) -> nháy đỏ cả hàng đến khi tick. Dùng box-shadow (không bị .rW/.rD !important đè) */
+@keyframes rmBlink{0%,100%{box-shadow:inset 0 0 0 100px rgba(239,68,68,0)}50%{box-shadow:inset 0 0 0 100px rgba(239,68,68,.5)}}
+tr[data-rm="1"] td,tr[data-rm="1"] .ci,tr[data-rm="1"] .ns,tr[data-rm="1"] .tk1{animation:rmBlink 1s ease-in-out infinite}
 .acc-btn{padding:14px 28px;background:white;color:#1e3a5f;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;min-width:260px;text-align:left;transition:transform .1s,box-shadow .1s}
 .acc-btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.25)}
 #sb-overlay{display:none}
@@ -809,7 +812,7 @@ function showUI() {
 // bên dưới (vd ngày-giờ) - trang đang mở sẽ tự phát hiện: nếu không có dữ liệu chưa lưu thì tự tải
 // lại, còn nếu đang có dữ liệu chưa lưu thì hiện thanh nhắc để họ lưu xong rồi bấm tải lại.
 // =============================================
-const APP_VERSION = '2026-11-22-2';
+const APP_VERSION = '2026-11-22-4';
 // Hiện số phiên bản ở đầu panel trái (☰ trên điện thoại) để biết điện thoại đang chạy bản nào.
 document.addEventListener('DOMContentLoaded',function(){var e=document.getElementById('app-ver');if(e)e.textContent='v'+APP_VERSION;});
 // =============================================
@@ -1395,7 +1398,7 @@ function openSheet(sn){
  const info=DB[sn];
  CD=info?info.devices:[];
  document.getElementById('shm').textContent=(CD.length||'?')+' thiết bị';
-  STAMPED[sn]={};BASE[sn]={};TOUCHED[sn]={};MANUAL[sn]={};STPCLR[sn]={}; // mở/làm mới sheet -> theo dõi sửa/tự điền bắt đầu lại từ đầu
+  STAMPED[sn]={};BASE[sn]={};TOUCHED[sn]={};MANUAL[sn]={};STPCLR[sn]={};SESED[sn]={};SESTICK[sn]={};NEWSES[sn]={}; // mở/làm mới sheet -> theo dõi sửa/tự điền bắt đầu lại từ đầu
 
  // Reset DIRTY cho sheet này mỗi lần mở để luôn load mới từ server - NHƯNG chỉ xoá thẳng tay khi
  // chắc chắn không có gì bị mất (sheet chưa từng sửa, hoặc lần "Lưu phiên" gần nhất đã thành công
@@ -1999,6 +2002,11 @@ function tkSingle(i,f,v,colorClass,pairField){
 }
 
 function onChg(e){
+ const r=onChgCore(e);
+ try{const ii=parseInt(e.target.dataset.i);if(!isNaN(ii))updRowReminder(ii);}catch(x){}   // nháy đỏ hàng đã nhập mà chưa tick
+ return r;
+}
+function onChgCore(e){
  const i=parseInt(e.target.dataset.i),f=e.target.dataset.f;
  // Nếu là input date text, dùng isoVal (yyyy-MM-dd) để lưu thay vì display value
  const v = e.target.dataset.isoVal || e.target.value;
@@ -2059,8 +2067,13 @@ function onChg(e){
  if(!USER_EDITED[CUR][i])USER_EDITED[CUR][i]={};
  USER_EDITED[CUR][i][f]=true;
 
+ // Ghi nhận ô này do người dùng nhập/bấm TRONG PHIÊN NÀY (để biết đâu là dữ liệu mới, đâu là dữ liệu phiên cũ) + trạng thái tick của hàng
+ sessTrack(i,f,v,e);
+
  // Tick STOP -> xóa dữ liệu phiên trước của thiết bị; bỏ tick STOP -> khôi phục (xem stopApply)
- stopApply(i,f,v);
+ stopApply(i,f,v,e);
+ // Tick đầu tiên của hàng trong phiên mới (OK/NOK, RUN/STOP...) -> xóa dữ liệu phiên cũ của hàng (xem tickSessionApply)
+ tickSessionApply(i,f,v,e);
 
  // Gõ nhầm rồi xóa -> trả về nguyên trạng (xem afterEditRevert)
  if(afterEditRevert(i,f,v,e)===true)return;   // đã trả lại giá trị cũ (onChg chạy lại cho giá trị mới)
@@ -2516,6 +2529,7 @@ function bindEv(){
  tas.forEach(el=>{el.style.height='auto';});
  const heights=tas.map(el=>el.scrollHeight);
  tas.forEach((el,idx)=>{el.style.height=heights[idx]+'px';});
+ updAllReminders();   // vẽ lại các hàng đang cần nhắc tick (sau khi render lại bảng)
 }
 
 function onTk1Click(e){
@@ -2723,7 +2737,7 @@ function autoStampRow(i,f,v){
 //  - Sau khi "Lưu phiên" xong hàng nào thì hàng đó được coi là mốc mới (không trả về trước lúc lưu).
 // =============================================
 const META_F=['ngay','gio','nguoi','norminal','yeu_cau'];
-const BASE={},TOUCHED={},MANUAL={},STPCLR={};
+const BASE={},TOUCHED={},MANUAL={},STPCLR={},SESED={},SESTICK={},NEWSES={};
 function effVal(i,f){
  const d=((DIRTY[CUR]||{})[i])||{};
  if(Object.prototype.hasOwnProperty.call(d,f)&&d[f]!==undefined&&d[f]!==null)return String(d[f]);
@@ -2746,7 +2760,11 @@ function rowAtBaseline(i){
  return Object.keys(b).every(f=>META_F.includes(f)||sameVal(effVal(i,f),b[f]));
 }
 function resetEditTracking(sn,i){
- [BASE,TOUCHED,STAMPED,MANUAL,STPCLR].forEach(m=>{if(!m[sn])return;if(i===undefined)m[sn]={};else delete m[sn][i];});
+ [BASE,TOUCHED,STAMPED,MANUAL,STPCLR,SESED,SESTICK,NEWSES].forEach(m=>{if(!m[sn])return;if(i===undefined)m[sn]={};else delete m[sn][i];});
+ if(sn===CUR){   // hàng đã lưu xong / mở lại sheet -> bỏ nháy đỏ
+  if(i===undefined){document.querySelectorAll('#tb tr[data-rm]').forEach(tr=>delete tr.dataset.rm);const tb=document.getElementById('tick-warn');if(tb)tb.remove();}
+  else{const tr=document.getElementById('r'+i);if(tr)delete tr.dataset.rm;}
+ }
 }
 function revertStamp(i){
  const st=STAMPED[CUR]&&STAMPED[CUR][i];
@@ -2874,24 +2892,24 @@ function stopScope(f){
  if(f==='stp'&&isMotorTp(tp))return keys.filter(k=>!STOP_KEEP.includes(k));
  if(f==='stop')return keys.filter(k=>!STOP_KEEP.includes(k));
  const m=f.match(/^(.+)_stop$/);
- if(m){const pre=m[1]+'_';return keys.filter(k=>k.indexOf(pre)===0&&!/_(run|stop|gtc)$/.test(k));}
+ if(m){const pre=m[1]+'_';return keys.filter(k=>k.indexOf(pre)===0&&!/_(run|stop|gtc|gtd)$/.test(k));}
  return null;
 }
-function stopApply(i,f,v){
+function stopApply(i,f,v,e){
  if(!CUR)return;
  const scope=stopScope(f);if(!scope)return;
  const on=String(v==null?'':v).trim()!=='';
  if(!STPCLR[CUR])STPCLR[CUR]={};
  if(on){
-  const snap={};
-  scope.forEach(k=>{const cur=effVal(i,k);if(String(cur).trim()!=='')snap[k]=cur;});
+  const snap={},sesN={},se0=(SESED[CUR]&&SESED[CUR][i])||{};
+  scope.forEach(k=>{const cur=effVal(i,k);if(String(cur).trim()!==''){snap[k]=cur;if(se0[k])sesN[k]=true;}});
   const runF=f.replace(/stop$|stp$/,'run');   // ô RUN đối lập (tick STOP sẽ tự tắt RUN) - nhớ để bỏ STOP thì bật lại
   const runV=getColMap(CUR)[runF]?effVal(i,runF):'';
   const n=Object.keys(snap).length;
   if(!n&&String(runV).trim()==='')return;
   STPCLR[CUR][i]=STPCLR[CUR][i]||{};
   const old=STPCLR[CUR][i][f]||{vals:{},run:null};
-  STPCLR[CUR][i][f]={vals:Object.assign(old.vals,snap),run:old.run||(String(runV).trim()!==''?{f:runF,val:runV}:null)};
+  STPCLR[CUR][i][f]={vals:Object.assign(old.vals,snap),ses:Object.assign(old.ses||{},sesN),run:old.run||(String(runV).trim()!==''?{f:runF,val:runV}:null)};
   Object.keys(snap).forEach(k=>putVal(i,k,''));
   if(!n)return;
   const dev=CD[i]||{};
@@ -2900,13 +2918,129 @@ function stopApply(i,f,v){
   const sv=STPCLR[CUR][i]&&STPCLR[CUR][i][f];if(!sv)return;
   const snap=sv.vals;
   let back=0;
-  Object.keys(snap).forEach(k=>{if(String(effVal(i,k)).trim()===''){putVal(i,k,snap[k]);back++;}});
-  if(sv.run&&String(effVal(i,sv.run.f)).trim()===''){putVal(i,sv.run.f,sv.run.val);}   // trả lại RUN như trước khi bấm STOP
+  const viaPair=!!(e&&e.pairOff);   // STOP bị tắt vì vừa bấm RUN (phiên mới đang chạy): chỉ trả lại phần người dùng đã NHẬP TRONG PHIÊN NÀY, không hồi sinh dữ liệu phiên cũ
+  Object.keys(snap).forEach(k=>{if(viaPair&&!(sv.ses&&sv.ses[k]))return;if(String(effVal(i,k)).trim()===''){putVal(i,k,snap[k]);back++;}});
+  if(!viaPair&&sv.run&&String(effVal(i,sv.run.f)).trim()===''){putVal(i,sv.run.f,sv.run.val);}   // trả lại RUN như trước khi bấm STOP
   delete STPCLR[CUR][i][f];
   cleanBaselineFlags(i);   // ô quay về đúng giá trị gốc thì không còn là "chưa lưu"
   if(back)showToast('↩ Đã khôi phục '+back+' ô dữ liệu cũ của dòng này (bỏ tick STOP).');
  }
 }
+
+// =============================================
+// PHIÊN MỚI TRÊN TỪNG DÒNG (2026-11-22) - áp dụng cho MỌI sheet có tick (OK/NOK, RUN/STOP):
+//  1) Tick đầu tiên của hàng trong phiên mới -> xóa hết dữ liệu của phiên CŨ trên hàng đó; Ngày/Giờ/Người = phiên mới (stampTick).
+//     "Phiên cũ" = dữ liệu mà người dùng CHƯA nhập lại trong lần mở sheet này, và Ngày KT gốc của hàng KHÔNG phải hôm nay
+//     (hàng đã kiểm tra hôm nay rồi mà tick lại thì giữ nguyên dữ liệu). Ô người dùng đã nhập trong phiên này được giữ.
+//     Giữ nguyên: Ngày/Giờ/Người, Định mức, Ghi chú, Giá trị TC. Bỏ tick (chưa Lưu phiên) -> khôi phục.
+//     Tick STOP: xóa như trước (stopApply).
+//  2) Hàng đã nhập số liệu trong phiên này mà CHƯA tick -> nháy đỏ cả hàng đến khi tick (updRowReminder).
+// =============================================
+function isStopField(f){return f==='stp'||f==='stop'||/_stop$/.test(f);}
+function todayIso(){const n=new Date(),p2=x=>String(x).padStart(2,'0');return n.getFullYear()+'-'+p2(n.getMonth()+1)+'-'+p2(n.getDate());}
+function sessTrack(i,f,v,e){
+ if(!CUR||!e||!e.target)return;
+ const on=String(v==null?'':v).trim()!=='';
+ if(!e.pairOff&&!META_F.includes(f)){
+  if(!SESED[CUR])SESED[CUR]={};if(!SESED[CUR][i])SESED[CUR][i]={};
+  SESED[CUR][i][f]=true;
+ }
+ if(e.target.tagName==='SPAN'){
+  if(!SESTICK[CUR])SESTICK[CUR]={};if(!SESTICK[CUR][i])SESTICK[CUR][i]={};
+  if(on)SESTICK[CUR][i][f]=true;else delete SESTICK[CUR][i][f];
+ }
+}
+function tickSessionApply(i,f,v,e){
+ if(!CUR||!e||!e.target||e.target.tagName!=='SPAN'||e.pairOff)return;
+ const on=String(v==null?'':v).trim()!=='';
+ if(!NEWSES[CUR])NEWSES[CUR]={};
+ if(!STPCLR[CUR])STPCLR[CUR]={};
+ if(on){
+  if(NEWSES[CUR][i])return;            // hàng đã bước vào phiên mới rồi (tick trước đó) - không xóa thêm
+  NEWSES[CUR][i]=true;
+  if(isStopField(f))return;            // STOP: stopApply đã xử lý
+  const cm=getColMap(CUR),b=BASE[CUR]&&BASE[CUR][i];
+  if(!b)return;
+  if(cm.ngay&&stampIso(b.ngay)===todayIso())return;   // hàng đã kiểm tra hôm nay -> cùng phiên, giữ dữ liệu
+  const el=document.querySelector('#r'+i+' .tk1[data-f="'+f+'"]');
+  const partner=el?el.dataset.pair:'';
+  const se=(SESED[CUR]&&SESED[CUR][i])||{};
+  const snap={};
+  Object.keys(cm).forEach(k=>{
+   if(META_F.includes(k)||k==='ghi_chu'||k==='gia_tri_tc'||/_(gtc|gtd)$/.test(k)||k===f||k===partner||se[k])return;
+   const cur=effVal(i,k);if(String(cur).trim()!=='')snap[k]=cur;
+  });
+  const n=Object.keys(snap).length;
+  if(!n)return;
+  STPCLR[CUR][i]=STPCLR[CUR][i]||{};
+  STPCLR[CUR][i].T={vals:snap};
+  Object.keys(snap).forEach(k=>putVal(i,k,''));
+  const dev=CD[i]||{};
+  showToast('🧹 '+(dev.doi_tuong||'')+' '+(dev.phan_tu||'')+': đã xóa '+n+' ô dữ liệu của phiên cũ (ngày/giờ/người = phiên mới). Bỏ tick để khôi phục.');
+ } else {
+  // bỏ tick (không phải do ô đối lập tự tắt): nếu hàng không còn tick nào thì trả lại dữ liệu phiên cũ đã xóa
+  if(Object.keys((SESTICK[CUR]&&SESTICK[CUR][i])||{}).length)return;
+  const sv=STPCLR[CUR][i]&&STPCLR[CUR][i].T;
+  delete NEWSES[CUR][i];
+  if(!sv)return;
+  let back=0;
+  Object.keys(sv.vals).forEach(k=>{if(String(effVal(i,k)).trim()===''){putVal(i,k,sv.vals[k]);back++;}});
+  delete STPCLR[CUR][i].T;
+  cleanBaselineFlags(i);
+  if(back)showToast('↩ Đã khôi phục '+back+' ô dữ liệu cũ của dòng này (bỏ tick).');
+ }
+}
+// Hàng đã nhập/sửa số liệu (có giá trị, khác giá trị gốc) trong phiên này mà chưa tick gì -> cần nhắc + chặn Lưu phiên
+function rowNeedsTick(i){
+ if(!CUR)return false;
+ const tr=document.getElementById('r'+i);if(!tr)return false;
+ const ticks=[...tr.querySelectorAll('.tk1')];
+ if(!ticks.length)return false;
+ if(Object.keys((SESTICK[CUR]&&SESTICK[CUR][i])||{}).length)return false;
+ const b=BASE[CUR]&&BASE[CUR][i];if(!b)return false;
+ const tf=new Set(ticks.map(x=>x.dataset.f));
+ const se=(SESED[CUR]&&SESED[CUR][i])||{};
+ return Object.keys(se).some(k=>!META_F.includes(k)&&!tf.has(k)&&String(effVal(i,k)).trim()!==''&&!sameVal(effVal(i,k),b[k]));   // chỉ tính số liệu NHẬP/SỬA có giá trị; xóa ô nhập nhầm thì không buộc phải tick
+}
+function updRowReminder(i){
+ const tr=document.getElementById('r'+i);if(!tr)return;
+ if(rowNeedsTick(i))tr.dataset.rm='1';else delete tr.dataset.rm;
+ if(document.getElementById('tick-warn'))refreshTickBanner();   // đang hiện cảnh báo chặn lưu -> cập nhật danh sách theo từng cú tick
+}
+// Danh sách các hàng đã nhập số liệu mà chưa tick (chặn "Lưu phiên" cho tới khi tick đủ)
+function tickPendingRows(){
+ const o=[];
+ document.querySelectorAll('#tb tr[id^="r"]').forEach(tr=>{const i=parseInt(tr.id.slice(1));if(!isNaN(i)&&rowNeedsTick(i))o.push(i);});
+ return o;
+}
+// Dòng cảnh báo đỏ phía trên bảng. Tự biến mất khi không còn hàng nào thiếu tick.
+function refreshTickBanner(forceShow){
+ const rows=tickPendingRows();
+ let b=document.getElementById('tick-warn');
+ if(!rows.length){if(b)b.remove();return;}
+ if(!b){
+  if(!forceShow)return;
+  const tw=document.getElementById('tw');if(!tw||!tw.parentNode)return;
+  b=document.createElement('div');b.id='tick-warn';
+  b.style.cssText='background:#fee2e2;color:#991b1b;border:1px solid #f87171;border-radius:8px;margin:6px 10px;padding:8px 12px;font-size:13px;font-weight:600;line-height:1.5';
+  tw.parentNode.insertBefore(b,tw);
+ }
+ b.textContent='';
+ const h=document.createElement('div');
+ h.textContent='⛔ CHƯA LƯU ĐƯỢC: còn '+rows.length+' dòng đã nhập số liệu nhưng CHƯA tick trạng thái (OK/NOK hoặc RUN/STOP). Hãy kiểm tra các dòng đang nháy đỏ, tick xong rồi bấm "Lưu phiên" lại:';
+ b.appendChild(h);
+ const box=document.createElement('div');box.style.cssText='margin-top:4px;font-weight:500';
+ rows.slice(0,15).forEach((i,k)=>{
+  const dev=CD[i]||{};
+  const a=document.createElement('a');a.href='#';a.style.cssText='color:#991b1b;text-decoration:underline;margin-right:12px;white-space:nowrap';
+  a.textContent='STT '+(dev.stt||(i+1))+' · '+(dev.doi_tuong||'')+(dev.phan_tu?'/'+dev.phan_tu:'');
+  a.onclick=ev=>{ev.preventDefault();const tr=document.getElementById('r'+i);if(tr)tr.scrollIntoView({block:'center',behavior:'smooth'});};
+  box.appendChild(a);
+ });
+ if(rows.length>15){const m=document.createElement('span');m.textContent='… và '+(rows.length-15)+' dòng nữa';box.appendChild(m);}
+ b.appendChild(box);
+}
+function updAllReminders(){document.querySelectorAll('#tb tr[id^="r"]').forEach(tr=>{const i=parseInt(tr.id.slice(1));if(!isNaN(i))updRowReminder(i);});}
 
 function afterEditRevert(i,f,v,e){
  if(!CUR)return;
@@ -2977,6 +3111,15 @@ window.addEventListener('beforeunload', function(e){
 
 async function savSheet(){
  if(!CUR)return;
+ // (2026-11-22) KHÔNG cho lưu khi còn dòng đã nhập số liệu mà chưa tick OK/NOK hoặc RUN/STOP
+ const needTick=tickPendingRows();
+ if(needTick.length){
+  refreshTickBanner(true);
+  const first=document.getElementById('r'+needTick[0]);
+  if(first)first.scrollIntoView({block:'center',behavior:'smooth'});
+  showToast('⛔ Chưa lưu: còn '+needTick.length+' dòng đã nhập mà chưa tick (đang nháy đỏ)','warn');
+  return;
+ }
  persistDirty();
  if(OFFLINE_MODE){ showToast('✅ Đã lưu local (chế độ offline)'); return; }
  if(liveBlocked()){ showToast('⛔ Chưa đọc được dữ liệu thật từ Google Sheet nên KHÔNG lưu (tránh ghi nhầm hàng). Bấm "Thử tải lại" ở thanh đỏ.','warn'); return; }
