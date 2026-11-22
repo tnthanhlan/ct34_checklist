@@ -809,7 +809,7 @@ function showUI() {
 // bên dưới (vd ngày-giờ) - trang đang mở sẽ tự phát hiện: nếu không có dữ liệu chưa lưu thì tự tải
 // lại, còn nếu đang có dữ liệu chưa lưu thì hiện thanh nhắc để họ lưu xong rồi bấm tải lại.
 // =============================================
-const APP_VERSION = '2026-10-12-7';
+const APP_VERSION = '2026-11-22-1';
 // Hiện số phiên bản ở đầu panel trái (☰ trên điện thoại) để biết điện thoại đang chạy bản nào.
 document.addEventListener('DOMContentLoaded',function(){var e=document.getElementById('app-ver');if(e)e.textContent='v'+APP_VERSION;});
 // =============================================
@@ -1395,7 +1395,7 @@ function openSheet(sn){
  const info=DB[sn];
  CD=info?info.devices:[];
  document.getElementById('shm').textContent=(CD.length||'?')+' thiết bị';
-  STAMPED[sn]={};BASE[sn]={};TOUCHED[sn]={}; // mở/làm mới sheet -> theo dõi sửa/tự điền bắt đầu lại từ đầu
+  STAMPED[sn]={};BASE[sn]={};TOUCHED[sn]={};MANUAL[sn]={};STPCLR[sn]={}; // mở/làm mới sheet -> theo dõi sửa/tự điền bắt đầu lại từ đầu
 
  // Reset DIRTY cho sheet này mỗi lần mở để luôn load mới từ server - NHƯNG chỉ xoá thẳng tay khi
  // chắc chắn không có gì bị mất (sheet chưa từng sửa, hoặc lần "Lưu phiên" gần nhất đã thành công
@@ -1478,7 +1478,7 @@ function openSheet(sn){
       }
       LISTSIG[sn]=newSig; saveListSig();
      }
-     DB[sn]={type:res.type||(DB[sn]?DB[sn].type:'motor'),devices:res.devices};
+     DB[sn]={type:res.type||(DB[sn]?DB[sn].type:'motor'),devices:res.devices,mgv:res.mgv};
      if(sn===CUR)CD=DB[sn].devices;
     }
     if(res.data&&res.data.length){
@@ -1669,7 +1669,14 @@ function mergeServerData(sn,rows){
    // bằng dữ liệu CŨ từ server, y hệt report "lưu phiên xong ngày KT lại mất".
    if(UNSAVED[sn] && UNSAVED[sn][devIdx] && UNSAVED[sn][devIdx][field]) return;
    let val=row[col-1];
-   if(val===null||val===undefined||val==='')return;
+   if(val===null||val===undefined||val===''){
+    // Server báo ô này TRỐNG (đã xóa trên Google Sheet / bởi máy khác) -> bỏ luôn giá trị cũ còn nằm trong
+    // bộ nhớ đệm của máy này. Trước đây chỉ bỏ qua ô trống nên ô đã xóa trên server vẫn hiện lại mãi
+    // trên máy nào từng lưu cache giá trị cũ ("xóa rồi mà vẫn còn"). Ô đang sửa/chờ lưu đã được chặn ở trên.
+    const dd=DIRTY[sn][devIdx];
+    if(dd&&Object.prototype.hasOwnProperty.call(dd,field)&&dd[field]!=='')dd[field]='';
+    return;
+   }
    val=String(val);
 
    // Chặn: field không phải 'ngay' nhưng giá trị đọc về lại có dạng ngày tháng
@@ -2020,7 +2027,14 @@ function onChg(e){
 
  // Nhập/tick số liệu vào hàng -> tự điền Ngày/Giờ/Người KT nếu hàng chưa có (xem autoStampRow)
  snapBase(i);
- autoStampRow(i,f,v);
+ const tagE=(e.target&&e.target.tagName)||'';
+ if(e.pairOff){/* ô đối lập tự tắt theo cú bấm vừa rồi: không tính là thao tác riêng */}
+ else if(tagE==='SPAN'||tagE==='SELECT')stampTick(i,f);   // bấm tick / chọn OK-NOK: MỖI lần đổi trạng thái đều cập nhật Ngày/Giờ/Người
+ else autoStampRow(i,f,v);
+ if(f==='ngay'||f==='gio'||f==='nguoi'){            // người dùng tự gõ Ngày/Giờ/Người -> không tự ghi đè nữa
+  if(!MANUAL[CUR])MANUAL[CUR]={};if(!MANUAL[CUR][i])MANUAL[CUR][i]={};
+  if(String(v==null?'':v).trim()!=='')MANUAL[CUR][i][f]=true;else delete MANUAL[CUR][i][f];
+ }
  // Người dùng tự gõ tên ở cột Người KT -> nhớ để các hàng sau tự điền cùng tên
  if(f==='nguoi'&&String(v||'').trim()){try{localStorage.setItem(LAST_NGUOI_KEY,String(v).trim());}catch(e){}}
 
@@ -2041,6 +2055,9 @@ function onChg(e){
  if(!USER_EDITED[CUR][i])USER_EDITED[CUR][i]={};
  USER_EDITED[CUR][i][f]=true;
 
+ // Tick STOP -> xóa dữ liệu phiên trước của thiết bị; bỏ tick STOP -> khôi phục (xem stopApply)
+ stopApply(i,f,v);
+
  // Gõ nhầm rồi xóa -> trả về nguyên trạng (xem afterEditRevert)
  if(afterEditRevert(i,f,v,e)===true)return;   // đã trả lại giá trị cũ (onChg chạy lại cho giá trị mới)
 
@@ -2050,7 +2067,13 @@ function onChg(e){
  // Màu input (SELECT cho sN - hộp nối)
  if(e.target.tagName==='SELECT')e.target.className='ns'+(v==='NOK'?' NK':'');
  // Bỏ qua nếu là SPAN (nút tick - đã xử lý trong onTickClick)
- if(e.target.tagName==='SPAN')return;
+ if(e.target.tagName==='SPAN'){
+  // Bấm tick có thể làm đổi dữ liệu cả hàng (vd tick STOP xóa số đo cũ) -> tính lại màu hàng + cảnh báo
+  const tpS=(DB[CUR]||{}).type;
+  if(isMotorTp(tpS)){const trS=document.getElementById('r'+i);if(trS){const raS=motorRowLevel(i);trS.className=raS==='CD'?'rD':raS==='CW'?'rW':'';}}
+  scheduleAlertsRecalc();
+  return;
+ }
  const nm=getNorminal(i);
  const ampF=['I_U_u','I_U_l','I_V_u','I_V_l','I_W_u','I_W_l'];
  const tmpF=motorTempFields((DB[CUR]||{}).type).map(x=>x[0]);
@@ -2523,7 +2546,7 @@ function onTk1Click(e){
  const fakeE1={target:{dataset:{i:String(i),f},value:newVal,tagName:'SPAN'}};
  onChg(fakeE1);
  if(pairEl){
-  const fakeE2={target:{dataset:{i:String(i),f:pairField},value:'',tagName:'SPAN'}};
+  const fakeE2={pairOff:true,target:{dataset:{i:String(i),f:pairField},value:'',tagName:'SPAN'}};
   onChg(fakeE2);
  }
 }
@@ -2653,8 +2676,8 @@ function stampSet(i,f,val,disp,iso){
  if(!USER_EDITED[CUR])USER_EDITED[CUR]={};if(!USER_EDITED[CUR][i])USER_EDITED[CUR][i]={};
  const st=STAMPED[CUR][i];
  if(st&&typeof st==='object'){ // nhớ trạng thái TRƯỚC khi tự điền để còn trả lại được
-  st.orig[f]=effVal(i,f);st.set[f]=val;
-  st.flags[f]={u:!!UNSAVED[CUR][i][f],e:!!USER_EDITED[CUR][i][f]};
+  if(!(f in st.orig)){st.orig[f]=effVal(i,f);st.flags[f]={u:!!UNSAVED[CUR][i][f],e:!!USER_EDITED[CUR][i][f]};}   // chỉ nhớ bản GỐC lần đầu
+  st.set[f]=val;
  }
  DIRTY[CUR][i][f]=val;UNSAVED[CUR][i][f]=true;USER_EDITED[CUR][i][f]=true;
  const el=document.querySelector('#r'+i+' [data-f="'+f+'"]');
@@ -2665,7 +2688,7 @@ function autoStampRow(i,f,v){
  if(!STAMPED[CUR])STAMPED[CUR]={};
  if(STAMPED[CUR][i])return;
  const tr=document.getElementById('r'+i);if(!tr)return;
- const hasN=!!tr.querySelector('[data-f="ngay"]'),hasG=!!tr.querySelector('[data-f="gio"]'),hasP=!!tr.querySelector('[data-f="nguoi"]');
+ const cmS=getColMap(CUR),hasN=!!cmS.ngay,hasG=!!cmS.gio,hasP=!!cmS.nguoi;   // theo CỘT TRÊN SHEET (nhà trạm chỉ hiện ô Ngày nhưng Sheet có đủ Giờ/Người)
  if(!hasN&&!hasG&&!hasP)return; // sheet này không có các cột Ngày/Giờ/Người
  STAMPED[CUR][i]=true;
  const n=new Date(),p2=x=>String(x).padStart(2,'0');
@@ -2695,7 +2718,7 @@ function autoStampRow(i,f,v){
 //  - Sau khi "Lưu phiên" xong hàng nào thì hàng đó được coi là mốc mới (không trả về trước lúc lưu).
 // =============================================
 const META_F=['ngay','gio','nguoi','norminal','yeu_cau'];
-const BASE={},TOUCHED={};
+const BASE={},TOUCHED={},MANUAL={},STPCLR={};
 function effVal(i,f){
  const d=((DIRTY[CUR]||{})[i])||{};
  if(Object.prototype.hasOwnProperty.call(d,f)&&d[f]!==undefined&&d[f]!==null)return String(d[f]);
@@ -2718,7 +2741,7 @@ function rowAtBaseline(i){
  return Object.keys(b).every(f=>META_F.includes(f)||sameVal(effVal(i,f),b[f]));
 }
 function resetEditTracking(sn,i){
- [BASE,TOUCHED,STAMPED].forEach(m=>{if(!m[sn])return;if(i===undefined)m[sn]={};else delete m[sn][i];});
+ [BASE,TOUCHED,STAMPED,MANUAL,STPCLR].forEach(m=>{if(!m[sn])return;if(i===undefined)m[sn]={};else delete m[sn][i];});
 }
 function revertStamp(i){
  const st=STAMPED[CUR]&&STAMPED[CUR][i];
@@ -2753,6 +2776,133 @@ function cleanBaselineFlags(i){
  });
  persistDirty();
 }
+// --- Bấm tick / chọn OK-NOK: MỖI lần đổi trạng thái (tick, bỏ tick, đổi OK<->NOK) đều ghi lại Ngày/Giờ/Người = bây giờ ---
+// (kể cả khi trạng thái cuối cùng giống hệt phiên trước: bỏ tick rồi tick lại = xác nhận đã kiểm tra lại hôm nay).
+// Ô Ngày/Giờ/Người mà người dùng đã TỰ GÕ tay trong lần mở sheet này thì không ghi đè.
+function stampTick(i,f){
+ if(!CUR||STAMP_SKIP.includes(f))return;
+ const tr=document.getElementById('r'+i);if(!tr)return;
+ const cmS=getColMap(CUR),hasN=!!cmS.ngay,hasG=!!cmS.gio,hasP=!!cmS.nguoi;   // theo CỘT TRÊN SHEET (nhà trạm chỉ hiện ô Ngày nhưng Sheet có đủ Giờ/Người)
+ if(!hasN&&!hasG&&!hasP)return;
+ if(!STAMPED[CUR])STAMPED[CUR]={};
+ let st=STAMPED[CUR][i];
+ if(!st||typeof st!=='object'){st={orig:{},set:{},flags:{}};STAMPED[CUR][i]=st;}
+ if(f!=='stp'&&f!=='stop'&&!/_stop$/.test(f))st.ticked=true;   // bấm STOP rồi bỏ STOP = hoàn tác (trả lại ngày giờ cũ); các tick khác = xác nhận lại
+ const man=((MANUAL[CUR]||{})[i])||{};
+ const n=new Date(),p2=x=>String(x).padStart(2,'0');
+ const iso=n.getFullYear()+'-'+p2(n.getMonth()+1)+'-'+p2(n.getDate());
+ const disp=p2(n.getDate())+'/'+p2(n.getMonth()+1)+'/'+n.getFullYear();
+ const time=p2(n.getHours())+':'+p2(n.getMinutes());
+ let did=false;
+ if(hasN&&!man.ngay){stampSet(i,'ngay',iso,disp,iso);did=true;}
+ if(hasG&&!man.gio){stampSet(i,'gio',time,time);did=true;}
+ if(hasP&&!man.nguoi){const nm=lastNguoi();if(nm){stampSet(i,'nguoi',nm,nm);did=true;}}
+ if(did)SHEET_SAVE_STATE[CUR]='dirty';
+}
+
+// Hàng còn dữ liệu nào ngoài Ngày/Giờ/Người/Định mức không?
+function rowHasData(i){
+ const cm=getColMap(CUR);
+ return Object.keys(cm).some(f=>!META_F.includes(f)&&String(effVal(i,f)).trim()!=='');
+}
+// Ô giao diện -> đặt lại giá trị + màu (dùng khi tự xóa / khôi phục dữ liệu)
+function setCellDom(i,f,val){
+ const el=document.querySelector('#r'+i+' [data-f="'+f+'"]');if(!el)return;
+ const tag=el.tagName;
+ if(tag==='SELECT'){el.value=val;el.className='ns'+(val==='NOK'?' NK':'');}
+ else if(tag==='INPUT'||tag==='TEXTAREA'){
+  el.value=val;
+  const tp=(DB[CUR]||{}).type;
+  const ampF=['I_U_u','I_U_l','I_V_u','I_V_l','I_W_u','I_W_l'];
+  const tmpF=isMotorTp(tp)?motorTempFields(tp).map(x=>x[0]):[];
+  let c='';
+  if(ampF.includes(f))c=aC(val,getNorminal(i));
+  else if(tmpF.includes(f))c=motorTempCls(i,val);
+  if(tag==='INPUT'&&(ampF.includes(f)||tmpF.includes(f)))el.className='ci'+(c?' '+c:'');
+  if(el.classList.contains('ta-auto'))autoGrowTA(el);
+  delete el.dataset.isoVal;
+ } else if(el.classList.contains('tk1')){
+  const on=!!String(val).trim();
+  el.textContent=on?'✔':'';
+  const col=el.dataset.color||'run-on';
+  el.classList.remove('run-on','stp-on');if(on)el.classList.add(col);
+ } else if(el.classList.contains('tk')){
+  const wrap=el.parentElement;if(!wrap)return;
+  const vl=String(val).toLowerCase();
+  const okB=wrap.querySelector('[data-role="ok"]'),nkB=wrap.querySelector('[data-role="nok"]');
+  if(okB)okB.classList.toggle('ok-on',vl==='ok'||vl==='x');
+  if(nkB)nkB.classList.toggle('nok-on',vl==='nok');
+ }
+}
+function putVal(i,f,val){   // ghi 1 giá trị vào bộ nhớ + giao diện, đánh dấu chờ lưu
+ if(!DIRTY[CUR])DIRTY[CUR]={};if(!DIRTY[CUR][i])DIRTY[CUR][i]={};
+ if(!UNSAVED[CUR])UNSAVED[CUR]={};if(!UNSAVED[CUR][i])UNSAVED[CUR][i]={};
+ if(!USER_EDITED[CUR])USER_EDITED[CUR]={};if(!USER_EDITED[CUR][i])USER_EDITED[CUR][i]={};
+ DIRTY[CUR][i][f]=val;UNSAVED[CUR][i][f]=true;USER_EDITED[CUR][i][f]=true;
+ setCellDom(i,f,val);
+}
+// Hàng đã hết dữ liệu (xóa sạch ô số liệu / bỏ hết tick) thì Ngày/Giờ/Người còn sót lại cũng được xóa để không thành "dòng ma"
+// (dòng trống mà vẫn mang ngày kiểm tra -> bị tính nhầm là đã thực hiện). Không đụng vào ô người dùng tự gõ,
+// và không xóa nếu ô Ngày/Giờ/Người của hàng này đang GỘP (merge) chung với hàng khác trên Google Sheet (server báo qua cờ mg;
+// bản Code.gs cũ không báo cờ này -> tính năng tự tắt cho an toàn).
+function clearEmptyRowStamps(i){
+ if(!CUR||rowHasData(i))return;
+ const info=DB[CUR]||{};
+ if(info.mgv!==1)return;
+ if((CD[i]||{}).mg)return;
+ const cm=getColMap(CUR);
+ const fs=['ngay','gio','nguoi'].filter(f=>cm[f]);
+ if(!fs.some(f=>String(effVal(i,f)).trim()!==''))return;
+ const man=((MANUAL[CUR]||{})[i])||{};
+ fs.forEach(f=>{if(!man[f]&&String(effVal(i,f)).trim()!=='')putVal(i,f,'');});
+ if(STAMPED[CUR])delete STAMPED[CUR][i];
+ SHEET_SAVE_STATE[CUR]='dirty';
+}
+
+// --- Tick STOP: thiết bị dừng -> xóa dữ liệu đã nhập của phiên trước (số đo, trạng thái OK/NOK, diễn giải...). ---
+// Giữ nguyên: Ngày/Giờ/Người (của phiên mới), Định mức, RUN/STOP, Ghi chú, Giá trị TC (là thông tin cố định của thiết bị).
+// Bỏ tick STOP (hoặc chuyển sang RUN) thì khôi phục lại đúng phần vừa xóa (chỉ khi chưa Lưu phiên).
+const STOP_KEEP=['ngay','gio','nguoi','norminal','run','stp','stop','ghi_chu','gia_tri_tc'];
+function stopScope(f){
+ const tp=(DB[CUR]||{}).type;const cm=getColMap(CUR);
+ const keys=Object.keys(cm);
+ if(f==='stp'&&isMotorTp(tp))return keys.filter(k=>!STOP_KEEP.includes(k));
+ if(f==='stop')return keys.filter(k=>!STOP_KEEP.includes(k));
+ const m=f.match(/^(.+)_stop$/);
+ if(m){const pre=m[1]+'_';return keys.filter(k=>k.indexOf(pre)===0&&!/_(run|stop|gtc)$/.test(k));}
+ return null;
+}
+function stopApply(i,f,v){
+ if(!CUR)return;
+ const scope=stopScope(f);if(!scope)return;
+ const on=String(v==null?'':v).trim()!=='';
+ if(!STPCLR[CUR])STPCLR[CUR]={};
+ if(on){
+  const snap={};
+  scope.forEach(k=>{const cur=effVal(i,k);if(String(cur).trim()!=='')snap[k]=cur;});
+  const runF=f.replace(/stop$|stp$/,'run');   // ô RUN đối lập (tick STOP sẽ tự tắt RUN) - nhớ để bỏ STOP thì bật lại
+  const runV=getColMap(CUR)[runF]?effVal(i,runF):'';
+  const n=Object.keys(snap).length;
+  if(!n&&String(runV).trim()==='')return;
+  STPCLR[CUR][i]=STPCLR[CUR][i]||{};
+  const old=STPCLR[CUR][i][f]||{vals:{},run:null};
+  STPCLR[CUR][i][f]={vals:Object.assign(old.vals,snap),run:old.run||(String(runV).trim()!==''?{f:runF,val:runV}:null)};
+  Object.keys(snap).forEach(k=>putVal(i,k,''));
+  if(!n)return;
+  const dev=CD[i]||{};
+  showToast('🛑 '+(dev.doi_tuong||'')+' '+(dev.phan_tu||'')+': đã xóa '+n+' ô dữ liệu phiên trước vì tick STOP (ngày/giờ/người giữ nguyên). Bỏ tick STOP để khôi phục.');
+ } else {
+  const sv=STPCLR[CUR][i]&&STPCLR[CUR][i][f];if(!sv)return;
+  const snap=sv.vals;
+  let back=0;
+  Object.keys(snap).forEach(k=>{if(String(effVal(i,k)).trim()===''){putVal(i,k,snap[k]);back++;}});
+  if(sv.run&&String(effVal(i,sv.run.f)).trim()===''){putVal(i,sv.run.f,sv.run.val);}   // trả lại RUN như trước khi bấm STOP
+  delete STPCLR[CUR][i][f];
+  cleanBaselineFlags(i);   // ô quay về đúng giá trị gốc thì không còn là "chưa lưu"
+  if(back)showToast('↩ Đã khôi phục '+back+' ô dữ liệu cũ của dòng này (bỏ tick STOP).');
+ }
+}
+
 function afterEditRevert(i,f,v,e){
  if(!CUR)return;
  const b=BASE[CUR]&&BASE[CUR][i];if(!b)return;
@@ -2766,14 +2916,22 @@ function afterEditRevert(i,f,v,e){
  const commit=!e||e.type==='change'||tag==='SELECT'||tag==='SPAN';   // chỉ xét "xóa trắng" khi rời ô, không xét từng phím
  if(val!==''){
   if(!sameVal(val,b[f]))TOUCHED[CUR][i][f]=true;
- }else if(commit&&TOUCHED[CUR][i][f]&&String(b[f]).trim()!==''&&(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT')){
-  // đã gõ rồi xóa trắng một ô vốn có dữ liệu -> trả lại dữ liệu cũ
+ }else if(commit&&TOUCHED[CUR][i][f]&&String(b[f]).trim()!==''&&(tag==='INPUT'||tag==='TEXTAREA')){
+  // đã gõ rồi xóa trắng một ô vốn có dữ liệu -> trả lại dữ liệu cũ (chọn "–" ở ô OK/NOK thì KHÔNG khôi phục: đó là chủ ý bỏ trạng thái)
   const el=e.target;el.value=b[f];
   delete TOUCHED[CUR][i][f];
   el.dispatchEvent(new Event('change',{bubbles:true}));   // chạy lại onChg để cập nhật DIRTY + màu cảnh báo
+  showToast('↩ Đã trả ô về giá trị cũ "'+b[f]+'". Muốn xóa hẳn ô này thì xóa thêm 1 lần nữa.');
   return true;
  }
- if(rowAtBaseline(i)){revertStamp(i);cleanBaselineFlags(i);}
+ if(rowAtBaseline(i)){
+  const st=STAMPED[CUR]&&STAMPED[CUR][i];
+  const keep=st&&typeof st==='object'&&st.ticked&&Object.keys(b).some(k=>!META_F.includes(k)&&String(b[k]).trim()!=='');
+  if(!keep)revertStamp(i);   // đã tick/bỏ tick lại trên hàng có dữ liệu = xác nhận kiểm tra lại -> giữ Ngày/Giờ/Người mới
+  cleanBaselineFlags(i);
+ } else if(commit&&val===''){
+  clearEmptyRowStamps(i);    // xóa hết dữ liệu của hàng -> xóa luôn Ngày/Giờ/Người còn sót
+ }
 }
 
 // Trạng thái "Lưu phiên" cho TỪNG SHEET RIÊNG - trước đây dùng chung 1 bộ biến
