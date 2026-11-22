@@ -812,7 +812,7 @@ function showUI() {
 // bên dưới (vd ngày-giờ) - trang đang mở sẽ tự phát hiện: nếu không có dữ liệu chưa lưu thì tự tải
 // lại, còn nếu đang có dữ liệu chưa lưu thì hiện thanh nhắc để họ lưu xong rồi bấm tải lại.
 // =============================================
-const APP_VERSION = '2026-11-22-4';
+const APP_VERSION = '2026-11-22-7';
 // Hiện số phiên bản ở đầu panel trái (☰ trên điện thoại) để biết điện thoại đang chạy bản nào.
 document.addEventListener('DOMContentLoaded',function(){var e=document.getElementById('app-ver');if(e)e.textContent='v'+APP_VERSION;});
 // =============================================
@@ -1562,6 +1562,10 @@ const COL_MAP = {
   t_dc:23,t_s2:24,t_s3:25,
   obi_khop:26,obi_dend:27,obi_ndend:28,
   tu_all:29,tu_q:30,tu_k1:31,tu_k2:32,tu_k3:33,
+  // (2026-11-22) BỔ SUNG: Sheet 20 có sẵn 6 cột Ổ bi c.tiết (D-END, ND-END) + Tổng thể (IP, AIR FLOW, KHỚP NỐI/HGT, NOISE) ở cột 34..39
+  // (khoảng trống giữa Tủ ĐK và CẢNH BÁO) nhưng bản đồ cũ thiếu -> nhập vào 6 ô này trên app KHÔNG được lưu/đọc lại. Phải khớp bomMap bên Code.gs.
+  obi_dend2:34,obi_ndend2:35,
+  tong_the_ip:36,air_flow:37,khop_noi_hgt:38,noise:39,
   canh_bao:40,danh_gia:41,dien_giai:42,ket_luan:43,ghi_chu:44
  },
  // (2026-10-10) User bỏ hẳn khối CT32 (4 cột Incoming/Z2U06/Z2U08/MCC) khỏi sheet 17 -> Kết luận/Ghi chú lùi về cột 43/44.
@@ -2424,7 +2428,7 @@ function renderCanOto(){
              ['CT346','CT34.6','h3'],['CT348','CT34.8','h4'],['CT349','CT34.9','h2']];
  let hdr=`<tr><th class="sk" style="min-width:30px">STT</th><th class="ellip64" data-cr="dt" style="min-width:var(--ct-dt,64px);max-width:var(--ct-dt,64px);position:sticky;left:30px;z-index:18;background:#1e3a5f">Đối tượng</th><th class="ellip64" data-cr="pt" style="min-width:var(--ct-pt,64px);max-width:var(--ct-pt,64px);position:sticky;left:calc(30px + var(--ct-dt,64px));z-index:18;background:#1e3a5f">Phần tử</th><th style="min-width:84px">Ngày KT</th><th style="min-width:88px">Yêu cầu</th><th>ĐVT</th>`;
  cans.forEach(([k,l,c])=>hdr+=`<th colspan="7" class="${c}">${l}</th>`);
- hdr+=`<th>Diễn giải</th><th>K.Luận</th><th>Ghi chú</th></tr><tr><th></th><th></th><th></th><th></th><th></th><th></th>`;
+ hdr+=`<th>Đánh giá</th><th>K.Luận</th><th>Ghi chú</th></tr><tr><th></th><th></th><th></th><th></th><th></th><th></th>`;
  cans.forEach(([k,l,c])=>hdr+=`<th class="${c}">RUN</th><th class="${c}">STOP</th><th class="${c}">OK</th><th class="${c}">NOK</th><th class="${c}">Diễn giải</th><th class="${c}">Xử lý</th><th class="${c}">Sau xử lý</th>`);
  hdr+=`<th></th><th></th><th></th></tr>`;
  document.getElementById('th').innerHTML=hdr;
@@ -2555,8 +2559,10 @@ function onTk1Click(e){
   el.classList.remove('run-on','stp-on');
  }
 
- // Tắt ô đối lập (luôn tắt khi 1 ô được tick)
- if(pairEl){
+ // Tắt ô đối lập CHỈ khi ô này vừa được TICK. Khi BỎ tick thì ô đối lập vốn đã tắt - KHÔNG gửi sự kiện tắt thêm: trước đây bỏ tick STOP
+ // khiến stopApply() trả RUN về ✔ rồi sự kiện "tắt RUN" chạy sau ghi đè DIRTY.run='' (màn hình ✔ nhưng giá trị rỗng -> Lưu phiên xóa mất RUN trên Sheet).
+ const turnOffPair=!!(pairEl&&newVal);
+ if(turnOffPair){
   pairEl.textContent='';
   pairEl.classList.remove('run-on','stp-on');
  }
@@ -2564,7 +2570,7 @@ function onTk1Click(e){
  // Lưu giá trị: ô được tick = 'x', ô đối lập = ''
  const fakeE1={target:{dataset:{i:String(i),f},value:newVal,tagName:'SPAN'}};
  onChg(fakeE1);
- if(pairEl){
+ if(turnOffPair){
   const fakeE2={pairOff:true,target:{dataset:{i:String(i),f:pairField},value:'',tagName:'SPAN'}};
   onChg(fakeE2);
  }
@@ -2746,8 +2752,11 @@ function effVal(i,f){
 function sameVal(a,b){
  a=String(a==null?'':a).trim();b=String(b==null?'':b).trim();
  if(a===b)return true;
- const x=parseFloat(a.replace(',','.')),y=parseFloat(b.replace(',','.'));
- return a!==''&&b!==''&&!isNaN(x)&&!isNaN(y)&&x===y;
+ // CHỈ so sánh số khi CẢ HAI đúng là số (vd "50" và "50.0"). Trước đây dùng parseFloat nên "2026-11-22" và "2026-11-15"
+ // (hoặc giờ "09:07" và "09:55") đều bị đọc thành 2026 (9) = "giống nhau" -> bỏ cờ chưa lưu của Ngày/Giờ mới -> "không có gì để lưu".
+ const NUM=/^[-+]?\d+([.,]\d+)?$/;
+ if(!NUM.test(a)||!NUM.test(b))return false;
+ return parseFloat(a.replace(',','.'))===parseFloat(b.replace(',','.'));
 }
 function snapBase(i){
  if(!CUR)return;if(!BASE[CUR])BASE[CUR]={};
